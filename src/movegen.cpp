@@ -161,26 +161,26 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
             auto process = [&]<auto kicksRot>(Rotation r1) {
                 Bitboard current = toSearch[x][r];
                 const auto& kicks = kicksRot[r];
-    
+
                 const Coordinates src = Gen::canonical_offset<p>(r);
                 const Coordinates tgt = Gen::canonical_offset<p>(r1);
-                
+
                 const int ddx = src.x - tgt.x;
                 const int ddy = src.y - tgt.y;
-    
+
                 for (size_t i = 0; i < kicks.size() && current; ++i) {
                     const int x1 = x + kicks[i].x + ddx;
-                    
+
                     if (!is_ok_x(x1))
                         continue;
-    
+
                     constexpr int threshold = 3;
                     const int dy = kicks[i].y + ddy;
                     const int y1 = threshold + dy;
-                    
+
                     Bitboard m = ((current << y1) >> threshold) & ~cm(x1, r1);
-                    current ^= (m << threshold) >> y1; 
-    
+                    current ^= (m << threshold) >> y1;
+
                     if constexpr (checkSpin) {
                         const Bitboard spins = m & spinMap[x1][0];
 

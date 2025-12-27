@@ -11,10 +11,11 @@ namespace Cobra {
 
 bool Board::obstructed(const Move& move) const {
     const PieceCoordinates pc = move.cells();
-    return obstructed(pc[0])
-        || obstructed(pc[1])
-        || obstructed(pc[2])
-        || obstructed(pc[3]);
+    const Coordinates off(move.x(), move.y());
+    return obstructed(off)
+        || obstructed(pc[0] + off)
+        || obstructed(pc[1] + off)
+        || obstructed(pc[2] + off);
 }
 
 bool Board::empty() const {
@@ -43,8 +44,12 @@ void Board::clear_lines(Bitboard l) {
 
 void Board::place(const Move& move) {
     const PieceCoordinates pc = move.cells();
-    for (size_t i = 0; i < 4; ++i)
-        col[pc[i].x] |= bb(pc[i].y);
+    const int x = move.x();
+    const int y = move.y();
+    col[x] |= bb(y);
+    col[pc[0].x + x] |= bb(pc[0].y + y);
+    col[pc[1].x + x] |= bb(pc[1].y + y);
+    col[pc[2].x + x] |= bb(pc[2].y + y);
 }
 
 std::string Board::to_string() const {
@@ -67,11 +72,13 @@ std::string Board::to_string(const Move& move) const {
     if (!obstructed(move)) {
         constexpr int lines = 20;
         const PieceCoordinates pc = move.cells();
+        const int x = move.x();
+        const int y = move.y();
         for (size_t i = 0; i < 4; ++i) {
-            const int inverseY = lines - pc[i].y;
+            const int inverseY = lines - (i == 0 ? y : pc[i - 1].y + y);
             if (inverseY < 0) // Moves above printable area
                 continue;
-            output[static_cast<size_t>(inverseY * 86 + pc[i].x * 4 + 47)] = '.';
+            output[static_cast<size_t>(inverseY * 86 + (i == 0 ? x : pc[i - 1].x + x) * 4 + 47)] = '.';
         }
     }
     return output;

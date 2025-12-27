@@ -32,12 +32,19 @@ private:
             if (!is_ok(*m))
                 return false;
 
-            PieceCoordinates pc = m->cells();
-            pc += Coordinates(0, -1);
-            if (!b.obstructed(pc[0]) &&
-                !b.obstructed(pc[1]) &&
-                !b.obstructed(pc[2]) &&
-                !b.obstructed(pc[3]))
+            const PieceCoordinates pc = m->cells();
+            Coordinates off(m->x(), m->y());
+            if (b.obstructed(off) ||
+                b.obstructed(pc[0] + off) ||
+                b.obstructed(pc[1] + off) ||
+                b.obstructed(pc[2] + off))
+                return false;
+
+            --off.y;
+            if (!b.obstructed(off) &&
+                !b.obstructed(pc[0] + off) &&
+                !b.obstructed(pc[1] + off) &&
+                !b.obstructed(pc[2] + off))
                 return false;
         }
         return true;

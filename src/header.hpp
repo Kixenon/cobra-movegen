@@ -108,18 +108,15 @@ public:
 
 class PieceCoordinates {
 private:
-    Coordinates coords[4];
+    Coordinates coords[3];
 
 public:
-    constexpr PieceCoordinates() = default;
-    constexpr PieceCoordinates(Coordinates a, Coordinates b, Coordinates c, Coordinates d)
-        : coords{a, b, c, d} {}
+    constexpr PieceCoordinates(Coordinates a, Coordinates b, Coordinates c) : coords{a, b, c} {}
 
-    constexpr const Coordinates& operator[](const size_t i) const {
-        assert(i >= 0 && i < 4);
+    constexpr Coordinates operator[](const size_t i) const {
+        assert(i >= 0 && i < 3);
         return coords[i];
     }
-    constexpr PieceCoordinates& operator+=(const Coordinates& c);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -171,13 +168,7 @@ constexpr Coordinates Coordinates::operator-(const Coordinates& c) const {
 }
 
 constexpr PieceCoordinates Move::cells() const {
-    return piece_table(piece(), rotation()) += Coordinates(x(), y());
-}
-
-constexpr PieceCoordinates& PieceCoordinates::operator+=(const Coordinates& c) {
-    for (auto& i : coords)
-        i += c;
-    return *this;
+    return piece_table(piece(), rotation());
 }
 
 constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
@@ -187,13 +178,13 @@ constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
     using C = Coordinates;
     constexpr auto make_piece = [](const Piece p) {
         switch(p) {
-            case I: return PieceCoordinates(C(-1, 0), C( 0, 0), C( 1, 0), C( 2, 0)); // ––––
-            case O: return PieceCoordinates(C( 0, 0), C( 1, 0), C( 0, 1), C( 1, 1)); // ::
-            case T: return PieceCoordinates(C(-1, 0), C( 0, 0), C( 1, 0), C( 0, 1)); // _|_
-            case L: return PieceCoordinates(C(-1, 0), C( 0, 0), C( 1, 0), C( 1, 1)); // __|
-            case J: return PieceCoordinates(C(-1, 0), C( 0, 0), C( 1, 0), C(-1, 1)); // ––;
-            case S: return PieceCoordinates(C(-1, 0), C( 0, 0), C( 0, 1), C( 1, 1)); // S
-            case Z: return PieceCoordinates(C(-1, 1), C( 0, 1), C( 0, 0), C( 1, 0)); // Z
+            case I: return PieceCoordinates(C(-1, 0), C( 1, 0), C( 2, 0)); // ––––
+            case O: return PieceCoordinates(C( 1, 0), C( 0, 1), C( 1, 1)); // ::
+            case T: return PieceCoordinates(C(-1, 0), C( 1, 0), C( 0, 1)); // _|_
+            case L: return PieceCoordinates(C(-1, 0), C( 1, 0), C( 1, 1)); // __|
+            case J: return PieceCoordinates(C(-1, 0), C( 1, 0), C(-1, 1)); // ––;
+            case S: return PieceCoordinates(C(-1, 0), C( 0, 1), C( 1, 1)); // S
+            case Z: return PieceCoordinates(C(-1, 1), C( 0, 1), C( 1, 0)); // Z
             default: __builtin_unreachable();
         }
     };
@@ -208,10 +199,7 @@ constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
     };
 
     const auto cells = make_piece(p);
-    return PieceCoordinates(
-        rotate(r, cells[0]), rotate(r, cells[1]),
-        rotate(r, cells[2]), rotate(r, cells[3])
-    );
+    return PieceCoordinates(rotate(r, cells[0]), rotate(r, cells[1]), rotate(r, cells[2]));
 }
 
 /*----------------------------------------------------------------------------*/

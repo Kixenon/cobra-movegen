@@ -21,7 +21,7 @@ consteval bool in_bounds(const int x) {
     static_assert(is_ok(p));
     static_assert(is_ok(r));
     constexpr PieceCoordinates pc = piece_table(p, r);
-    return is_ok_x(pc[0].x + x) && is_ok_x(pc[1].x + x) && is_ok_x(pc[2].x + x) && is_ok_x(pc[3].x + x);
+    return is_ok_x(x) && is_ok_x(pc[0].x + x) && is_ok_x(pc[1].x + x) && is_ok_x(pc[2].x + x);
 }
 
 template<Piece p>
@@ -48,7 +48,7 @@ constexpr Coordinates canonical_offset(const Rotation r) {
         if (r == SOUTH)
             return {1, 0};
         if (r == WEST)
-            return {0, 1}; 
+            return {0, 1};
     }
     if constexpr (p == S || p == Z) {
         if (r == WEST)
@@ -71,9 +71,10 @@ public:
             if constexpr (!in_bounds<p, r>(x))
                 return ~0ULL;
             constexpr PieceCoordinates pc = piece_table(p, r);
-            Bitboard result = 0;
-            for (size_t i = 0; i < 4; ++i)
-                result |= (pc[i].y < 0) ? ~(~b[x + pc[i].x] << -pc[i].y) : (b[x + pc[i].x] >> pc[i].y);
+            Bitboard result = b[x];
+            result |= (pc[0].y < 0) ? ~(~b[x + pc[0].x] << -pc[0].y) : (b[x + pc[0].x] >> pc[0].y);
+            result |= (pc[1].y < 0) ? ~(~b[x + pc[1].x] << -pc[1].y) : (b[x + pc[1].x] >> pc[1].y);
+            result |= (pc[2].y < 0) ? ~(~b[x + pc[2].x] << -pc[2].y) : (b[x + pc[2].x] >> pc[2].y);
             return result;
         };
 

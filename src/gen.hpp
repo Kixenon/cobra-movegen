@@ -24,20 +24,24 @@ consteval bool in_bounds(const int x) {
     return is_ok_x(x) && is_ok_x(pc[0].x + x) && is_ok_x(pc[1].x + x) && is_ok_x(pc[2].x + x);
 }
 
+consteval bool group2(const Piece p) {
+    return p == I || p == S || p == Z;
+}
+
 template<Piece p>
 consteval int canonical_size() {
     if constexpr (p == O)
         return 1;
-    if constexpr (p == I || p == S || p == Z)
+    if constexpr (group2(p))
         return 2;
     return 4; // L, J, T
 }
 
 template<Piece p>
 constexpr Rotation canonical_r(const Rotation r){
-    // if constexpr (p == O)
-    //     return NORTH;
-    if constexpr (p == I || p == S || p == Z)
+    if constexpr (p == O)
+        return NORTH;
+    if constexpr (group2(p))
         return static_cast<Rotation>(r & 1);
     return r; // L, J, T
 }

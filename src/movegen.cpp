@@ -29,8 +29,11 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
     auto remaining_index = [](int x, Rotation r) { return bb(x * ROTATION_NB + r); };
 
     for (int x = 0; x < COL_NB; ++x)
-        for (int r = 0; r < searchSize; ++r)
+        for (int r = 0; r < canonicalSize; ++r) {
             searched[x][r] = cm(x, static_cast<Rotation>(r));
+            if constexpr (Gen::group2(p))
+                searched[x][r + 2] = searched[x][r];
+        }
 
     if (slow) {
         const Bitboard spawn = [&]{
@@ -50,7 +53,7 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
     } else {
         auto init = [&]<int x>{
             auto process = [&]<Rotation r>{
-                if constexpr (!Gen::in_bounds<p, Gen::canonical_r<p>(r)>(x))
+                if constexpr (!Gen::in_bounds<p, r>(x))
                     return;
 
                 assert(cm(x, r) != ~0ULL);
@@ -59,9 +62,16 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
 
                 searched[x][r] |= toSearch[x][r] = surface;
                 remaining |= remaining_index(x, r);
+
+                if constexpr (Gen::group2(p)) {
+                    constexpr Rotation r1 = Gen::rotate<Gen::FLIP>(r);
+                    searched[x][r1] |= toSearch[x][r1] = surface;
+                    remaining |= remaining_index(x, r1);
+                }
+
                 if constexpr (checkSpin)
                     spinSet[x][r][NO_SPIN] = surface;
-                else if constexpr (r < canonicalSize) {
+                else {
                     *moves++ = Move(p, r, x, y);
                     total += popcount(~cm(x, r) & ((cm(x, r) << 1) | 1)) - 1;
                 }
@@ -69,7 +79,7 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
 
             [&]<size_t... rs>(std::index_sequence<rs...>) {
                 (process.template operator()<static_cast<Rotation>(rs)>(), ...);
-            }(std::make_index_sequence<searchSize>());
+            }(std::make_index_sequence<canonicalSize>());
         };
 
         [&]<size_t... xs>(std::index_sequence<xs...>) {

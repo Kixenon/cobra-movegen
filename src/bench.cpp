@@ -3,15 +3,29 @@
 #include "header.hpp"
 #include "movegen.hpp"
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 
 namespace Cobra {
 
+// From https://github.com/facebook/folly/blob/7a3f5e4e81bc83a07036e2d1d99d6a5bf5932a48/folly/lang/Hint-inl.h#L107
+// Apache License 2.0
+template <class Tp>
+inline void do_not_optimize(const Tp &value) {
+    asm volatile("" : : "m"(value) : "memory");
+}
+
 uint64_t perft(State& state, const Piece* next, unsigned depth) {
-    if (depth == 1)
-        return static_cast<uint64_t>(MoveList(state.board, *next).size());
+    assert(is_ok(*next));
+    assert(depth > 0);
+
+    if (depth == 1) {
+        const MoveList moves(state.board, *next);
+        do_not_optimize(moves);
+        return static_cast<uint64_t>(moves.size());
+    }
 
     uint64_t nodes = 0;
     for (const Move& move : MoveList(state.board, *next)) {

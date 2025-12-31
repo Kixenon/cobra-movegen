@@ -52,6 +52,14 @@ void Board::place(const Move& move) {
     col[pc[2].x + x] |= bb(pc[2].y + y);
 }
 
+void Board::spawn_garbage(const int lines, const int x) {
+    assert(is_ok_x(x));
+    assert(lines > 0);
+    for (auto& c : col)
+        c = ~(~c << lines);
+    col[x] = (col[x] >> lines) << lines;
+}
+
 std::string Board::to_string() const {
     constexpr int lines = 20;
     std::string output;
@@ -82,32 +90,6 @@ std::string Board::to_string(const Move& move) const {
         }
     }
     return output;
-}
-
-int MoveInfo::lines_sent(const double multiplier) const {
-    if (!clear)
-        return 0;
-    assert(clear > 0 && combo > 0);
-
-    constexpr int AttackTableBase[SPIN_NB][4] = {
-        {0, 1, 2, 4},
-        {0, 1},
-        {2, 4, 6},
-    };
-
-    double lines = AttackTableBase[spin][clear - 1];
-
-    if (b2b > 1) {
-        const double v = std::log1p((b2b - 1) * 0.8);
-        lines += static_cast<int>(1 + v) + (b2b == 2 ? 0 : (1 + v - static_cast<int>(v)) / 3);
-    }
-
-    lines *= 1 + 0.25 * (combo - 1);
-
-    if (combo > 2)
-        lines = std::max(std::log1p((combo - 1) * 1.25), lines);
-
-    return static_cast<int>(lines * multiplier) + static_cast<int>(pc * 10 * multiplier);
 }
 
 void State::init() {

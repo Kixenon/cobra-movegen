@@ -1,4 +1,4 @@
-SRCS = $(wildcard *.cpp)
+SRCS = $(wildcard src/*.cpp) apps/bench.cpp
 
 TARGET = cobra-movegen
 CXX = clang++

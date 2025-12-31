@@ -1,14 +1,13 @@
-#include "bench.hpp"
-#include "board.hpp"
-#include "header.hpp"
-#include "movegen.hpp"
+#include "../src/board.hpp"
+#include "../src/header.hpp"
+#include "../src/movegen.hpp"
 
 #include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 
-namespace Cobra {
+using namespace Cobra;
 
 // From https://github.com/facebook/folly/blob/7a3f5e4e81bc83a07036e2d1d99d6a5bf5932a48/folly/lang/Hint-inl.h#L107
 // Apache License 2.0
@@ -37,7 +36,7 @@ uint64_t perft(State& state, const Piece* next, unsigned depth) {
     return nodes;
 }
 
-void bench_perft() {
+int main() {
     // Depth should be <= the queue size, but that is left to the user
     constexpr unsigned depth = 7;
     const Piece queue[] = {I, O, L, J, S, Z, T};
@@ -55,6 +54,6 @@ void bench_perft() {
               << " Nodes: " << nodes
               << " Time: " << dt << "ms"
               << " NPS: " << (nodes * 1000) / static_cast<uint64_t>(dt + 1) << std::endl;
-}
 
-} // namespace Cobra
+    return 0;
+}

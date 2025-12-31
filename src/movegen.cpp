@@ -2,6 +2,7 @@
 #include "gen.hpp"
 #include "header.hpp"
 #include "movegen.hpp"
+#include "ruleset.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -9,10 +10,8 @@
 
 namespace Cobra {
 
-const Bitboard spinMapDummy[COL_NB][1 + ROTATION_NB] = {};
-
 template<Piece p1>
-Move* generate(Move* moves, const bool slow, const bool force, const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, [[maybe_unused]] const Bitboard (&spinMap)[COL_NB][1 + ROTATION_NB] = spinMapDummy) {
+Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, const bool slow, const bool force, [[maybe_unused]] const Bitboard (*spinMap)[1 + ROTATION_NB] = nullptr) {
     constexpr Piece p = p1 == TSPIN ? T : p1;
     constexpr bool checkSpin = p1 == TSPIN;
     constexpr int canonicalSize = Gen::canonical_size<p>();
@@ -30,35 +29,37 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
 
     for (int x = 0; x < COL_NB; ++x)
         for (int r = 0; r < canonicalSize; ++r) {
-            searched[x][r] = cm(x, static_cast<Rotation>(r));
+            searched[x][r] = cm[x][r];
             if constexpr (Gen::group2(p))
                 searched[x][r + 2] = searched[x][r];
         }
 
     if (slow) {
+        constexpr int spawnCol = 4;
         const Bitboard spawn = [&]{
             if (force) {
-                const Bitboard s = ~cm[Gen::SPAWN_COL][NORTH] & (~0ULL << Gen::SPAWN_ROW);
+                const Bitboard s = ~cm[spawnCol][NORTH] & (~0ULL << ACTIVE_RULES.spawnRow);
                 return s & -s;
             }
-            return ~cm[Gen::SPAWN_COL][NORTH] & bb(Gen::SPAWN_ROW);
+            return ~cm[spawnCol][NORTH] & bb(ACTIVE_RULES.spawnRow);
         }();
         if (!spawn)
             return moves;
 
-        toSearch[Gen::SPAWN_COL][NORTH] = spawn;
-        remaining |= remaining_index(Gen::SPAWN_COL, NORTH);
+        toSearch[spawnCol][NORTH] = spawn;
+        remaining |= remaining_index(spawnCol, NORTH);
+
         if constexpr (checkSpin)
-            spinSet[Gen::SPAWN_COL][NORTH][NO_SPIN] = spawn;
+            spinSet[spawnCol][NORTH][NO_SPIN] = spawn;
     } else {
         auto init = [&]<int x>{
             auto process = [&]<Rotation r>{
                 if constexpr (!Gen::in_bounds<p, r>(x))
                     return;
 
-                assert(cm(x, r) != ~0ULL);
-                const int y = bitlen(cm(x, r));
-                const Bitboard surface = bb_low(Gen::SPAWN_ROW) & ~bb_low(y);
+                assert(cm[x][r] != ~0ULL);
+                const int y = bitlen(cm[x][r]);
+                const Bitboard surface = bb_low(ACTIVE_RULES.spawnRow) & ~bb_low(y);
 
                 searched[x][r] |= toSearch[x][r] = surface;
                 remaining |= remaining_index(x, r);
@@ -73,7 +74,7 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
                     spinSet[x][r][NO_SPIN] = surface;
                 else {
                     *moves++ = Move(p, r, x, y);
-                    total += popcount(~cm(x, r) & ((cm(x, r) << 1) | 1)) - 1;
+                    total += popcount(~cm[x][r] & ((cm[x][r] << 1) | 1)) - 1;
                 }
             };
 
@@ -99,15 +100,15 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
         assert(is_ok_x(x));
         assert(is_ok(r));
         assert(toSearch[x][r]);
-        assert((toSearch[x][r] & ~cm(x, r)) == toSearch[x][r]);
+        assert((toSearch[x][r] & ~cm[x][Gen::canonical_r<p>(r)]) == toSearch[x][r]);
 
         // Softdrops
         {
             if constexpr (checkSpin) {
-                Bitboard m = (toSearch[x][r] >> 1) & ~cm(x, r);
+                Bitboard m = (toSearch[x][r] >> 1) & ~cm[x][r];
                 while ((m & toSearch[x][r]) != m) {
                     toSearch[x][r] |= m;
-                    m |= (m >> 1) & ~cm(x, r);
+                    m |= (m >> 1) & ~cm[x][r];
                 }
                 spinSet[x][r][NO_SPIN] |= m;
             } else {
@@ -128,14 +129,14 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
         // Harddrops
         {
             if constexpr (checkSpin)
-                moveSet[x][r] |= toSearch[x][r] & ((cm(x, r) << 1) | 1);
+                moveSet[x][r] |= toSearch[x][r] & ((cm[x][r] << 1) | 1);
             else {
                 const Rotation r1 = Gen::canonical_r<p>(r);
-                Bitboard m = toSearch[x][r] & ((cm(x, r) << 1) | 1) & ~searched[x][r] & ~moveSet[x][r1];
+                Bitboard m = toSearch[x][r] & ((cm[x][r1] << 1) | 1) & ~searched[x][r] & ~moveSet[x][r1];
                 if (m) {
                     assert(is_ok(r1));
-                    assert(!(m & cm(x, r1)));
-                    assert(((m >> 1) & cm(x, r1)) == (m >> 1));
+                    assert(!(m & cm[x][r1]));
+                    assert(((m >> 1) & cm[x][r1]) == (m >> 1));
 
                     moveSet[x][r1] |= m;
                     total -= popcount(m);
@@ -169,18 +170,20 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
         // Rotate
         if constexpr (p != O) {
             auto process = [&]<auto kicksRot>(Rotation r1) {
-                Bitboard current = toSearch[x][r];
                 const auto& kicks = kicksRot[r];
+                const Rotation rc = Gen::canonical_r<p>(r1);
 
                 const Coordinates src = Gen::canonical_offset<p>(r);
                 const Coordinates tgt = Gen::canonical_offset<p>(r1);
-
                 const int ddx = src.x - tgt.x;
                 const int ddy = src.y - tgt.y;
 
-                for (size_t i = 0; i < kicks.size() && current; ++i) {
-                    const int x1 = x + kicks[i].x + ddx;
+                const size_t N = (!ACTIVE_RULES.srsPlus && kicks.size() == 6) ? 2 : kicks.size();
 
+                Bitboard current = toSearch[x][r];
+
+                for (size_t i = 0; i < N && current; ++i) {
+                    const int x1 = x + kicks[i].x + ddx;
                     if (!is_ok_x(x1))
                         continue;
 
@@ -188,7 +191,7 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
                     const int dy = kicks[i].y + ddy;
                     const int y1 = threshold + dy;
 
-                    Bitboard m = ((current << y1) >> threshold) & ~cm(x1, r1);
+                    Bitboard m = ((current << y1) >> threshold) & ~cm[x1][rc];
                     current ^= (m << threshold) >> y1;
 
                     if constexpr (checkSpin) {
@@ -213,9 +216,16 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
                 }
             };
 
-            process.template operator()<Gen::kicks[p == I][Gen::Direction::CW]>(Gen::rotate<Gen::Direction::CW>(r));
-            process.template operator()<Gen::kicks[p == I][Gen::Direction::CCW]>(Gen::rotate<Gen::Direction::CCW>(r));
-            process.template operator()<Gen::kicks180[p == I]>(Gen::rotate<Gen::Direction::FLIP>(r));
+            if (ACTIVE_RULES.srsPlus) {
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CW]>(Gen::rotate<Gen::Direction::CW>(r));
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CCW]>(Gen::rotate<Gen::Direction::CCW>(r));
+            }
+            else {
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CW]>(Gen::rotate<Gen::Direction::CW>(r));
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CCW]>(Gen::rotate<Gen::Direction::CCW>(r));
+            }
+            if (ACTIVE_RULES.enable180)
+                process.template operator()<Gen::kicks180[p == I]>(Gen::rotate<Gen::Direction::FLIP>(r));
         }
 
         searched[x][r] |= toSearch[x][r];
@@ -242,18 +252,19 @@ Move* generate(Move* moves, const bool slow, const bool force, const Gen::Collis
 }
 
 Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
+    assert(ACTIVE_RULES.spawnRow > 0);
     const bool slow = [&]{
         Bitboard m = b[0];
         for (int i = 1; i < COL_NB; ++i)
             m |= b[i];
-        return bitlen(m) > Gen::SPAWN_ROW - 3;
+        return bitlen(m) > ACTIVE_RULES.spawnRow - 3;
     }();
 
     switch(p) {
-        case I: return generate<I>(moves, slow, force, Gen::CollisionMap<I>(b));
-        case O: return generate<O>(moves, slow, force, Gen::CollisionMap<O>(b));
+        case I: return generate<I>(Gen::CollisionMap<I>(b), moves, slow, force);
+        case O: return generate<O>(Gen::CollisionMap<O>(b), moves, slow, force);
         case T:
-            {
+            if (ACTIVE_RULES.enableTspin) {
                 const Gen::CollisionMap<T> cm(b);
                 bool checkSpin = false;
                 Bitboard spinMap[COL_NB][1 + ROTATION_NB] = {};
@@ -275,7 +286,7 @@ Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
                         auto process = [&]<Rotation r>{
                             if (Gen::in_bounds<T, r>(x)) {
                                 spinMap[x][1 + r] = spins & corners[r] & corners[Gen::rotate<Gen::Direction::CW>(r)];
-                                checkSpin |= spins & ~cm(x, r) & ((cm(x, r) << 1) | 1);
+                                checkSpin |= spins & ~cm[x][r] & ((cm[x][r] << 1) | 1);
                             }
                         };
 
@@ -290,13 +301,14 @@ Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
                 }(std::make_index_sequence<COL_NB>());
 
                 if (checkSpin)
-                    return generate<TSPIN>(moves, slow, force, cm, spinMap);
-                return generate<T>(moves, slow, force, cm);
-            }
-        case L: return generate<L>(moves, slow, force, Gen::CollisionMap<L>(b));
-        case J: return generate<J>(moves, slow, force, Gen::CollisionMap<J>(b));
-        case S: return generate<S>(moves, slow, force, Gen::CollisionMap<S>(b));
-        case Z: return generate<Z>(moves, slow, force, Gen::CollisionMap<Z>(b));
+                    return generate<TSPIN>(cm, moves, slow, force, spinMap);
+                return generate<T>(cm, moves, slow, force);
+            } else
+                return generate<T>(Gen::CollisionMap<T>(b), moves, slow, force);
+        case L: return generate<L>(Gen::CollisionMap<L>(b), moves, slow, force);
+        case J: return generate<J>(Gen::CollisionMap<J>(b), moves, slow, force);
+        case S: return generate<S>(Gen::CollisionMap<S>(b), moves, slow, force);
+        case Z: return generate<Z>(Gen::CollisionMap<Z>(b), moves, slow, force);
         default: __builtin_unreachable();
     }
 }

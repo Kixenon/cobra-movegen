@@ -32,6 +32,8 @@ public:
     void clear_lines(Bitboard l);
     void place(const Move& move);
 
+    void spawn_garbage(int lines, int x);
+
     std::string to_string() const;
     std::string to_string(const Move& move) const;
 };
@@ -43,8 +45,6 @@ struct MoveInfo {
     int b2b;
     int combo;
     bool pc;
-
-    int lines_sent(double multiplier = 1.0) const;
 };
 
 struct State {

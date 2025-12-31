@@ -13,9 +13,6 @@ namespace Cobra {
 
 namespace Gen {
 
-constexpr int SPAWN_COL = 4;
-constexpr int SPAWN_ROW = 21;
-
 template<Piece p, Rotation r>
 consteval bool in_bounds(const int x) {
     static_assert(is_ok(p));
@@ -94,8 +91,6 @@ public:
     }
 
     const Bitboard* operator[](const int x) const { return board[x]; }
-
-    Bitboard operator()(const int x, const Rotation r) const { return board[x][canonical_r<p>(r)]; }
 };
 
 enum Direction {
@@ -118,9 +113,8 @@ using Offsets = std::array<Coordinates, N>;
 template<size_t N>
 using OffsetsRot = std::array<Offsets<N>, ROTATION_NB>;
 
-
 #define e Coordinates
-constexpr OffsetsRot<5> kicks[2][Direction_NB] = {
+constexpr OffsetsRot<5> kicks[3][Direction_NB] = {
     { // LJSZT
         { // CW
             e( 0,  0), e(-1,  0), e(-1,  1), e( 0, -2), e(-1, -2),
@@ -133,6 +127,20 @@ constexpr OffsetsRot<5> kicks[2][Direction_NB] = {
             e( 0,  0), e( 1,  0), e( 1, -1), e( 0,  2), e( 1,  2),
             e( 0,  0), e(-1,  0), e(-1,  1), e( 0, -2), e(-1, -2),
             e( 0,  0), e(-1,  0), e(-1, -1), e( 0,  2), e(-1,  2)
+        }
+    },
+    { // I SRS
+        { // CW
+            (e( 1,  0), e(-1,  0), e( 2,  0), e(-1, -1), e( 2,  2)),
+            (e( 0, -1), e(-1, -1), e( 2, -1), e(-1,  1), e( 2, -2)),
+            (e(-1,  0), e( 1,  0), e( 2,  0), e( 1,  1), e(-2, -2)),
+            (e( 0,  1), e( 1,  1), e(-2,  1), e( 1, -1), e(-2,  2))
+        },
+        { // CCW
+            (e( 0, -1), e(-1, -1), e( 2, -1), e(-1,  1), e( 2, -2)),
+            (e(-1,  0), e( 1,  0), e( 2,  0), e( 1,  1), e(-2, -2)),
+            (e( 0,  1), e( 1,  1), e(-2,  1), e( 1, -1), e(-2,  2)),
+            (e( 1,  0), e(-1,  0), e( 2,  0), e(-1, -1), e( 2,  2))
         }
     },
     { // I SRS+

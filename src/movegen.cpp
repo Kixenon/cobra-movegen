@@ -35,22 +35,21 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
         }
 
     if (slow) {
-        constexpr int spawnCol = 4;
         const Bitboard spawn = [&]{
             if (force) {
-                const Bitboard s = ~cm[spawnCol][NORTH] & (~0ULL << ACTIVE_RULES.spawnRow);
+                const Bitboard s = ~cm[Gen::SPAWN_COL][NORTH] & (~0ULL << ACTIVE_RULES.spawnRow);
                 return s & -s;
             }
-            return ~cm[spawnCol][NORTH] & bb(ACTIVE_RULES.spawnRow);
+            return ~cm[Gen::SPAWN_COL][NORTH] & bb(ACTIVE_RULES.spawnRow);
         }();
         if (!spawn)
             return moves;
 
-        toSearch[spawnCol][NORTH] = spawn;
-        remaining |= remaining_index(spawnCol, NORTH);
+        toSearch[Gen::SPAWN_COL][NORTH] = spawn;
+        remaining |= remaining_index(Gen::SPAWN_COL, NORTH);
 
         if constexpr (checkSpin)
-            spinSet[spawnCol][NORTH][NO_SPIN] = spawn;
+            spinSet[Gen::SPAWN_COL][NORTH][NO_SPIN] = spawn;
     } else {
         auto init = [&]<int x>{
             auto process = [&]<Rotation r>{
@@ -169,27 +168,22 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
 
         // Rotate
         if constexpr (p != O) {
-            auto process = [&]<auto kicksRot>(Rotation r1) {
+            auto process = [&]<auto kicksRot, Gen::Direction d>() {
                 const auto& kicks = kicksRot[r];
+                const Rotation r1 = Gen::rotate<d>(r);
                 const Rotation rc = Gen::canonical_r<p>(r1);
-
-                const Coordinates src = Gen::canonical_offset<p>(r);
-                const Coordinates tgt = Gen::canonical_offset<p>(r1);
-                const int ddx = src.x - tgt.x;
-                const int ddy = src.y - tgt.y;
-
+                const Coordinates off = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(r1);
                 const size_t N = (!ACTIVE_RULES.srsPlus && kicks.size() == 6) ? 2 : kicks.size();
 
                 Bitboard current = toSearch[x][r];
 
                 for (size_t i = 0; i < N && current; ++i) {
-                    const int x1 = x + kicks[i].x + ddx;
+                    const int x1 = x + kicks[i].x + off.x;
                     if (!is_ok_x(x1))
                         continue;
 
                     constexpr int threshold = 3;
-                    const int dy = kicks[i].y + ddy;
-                    const int y1 = threshold + dy;
+                    const int y1 = threshold + kicks[i].y + off.y;
 
                     Bitboard m = ((current << y1) >> threshold) & ~cm[x1][rc];
                     current ^= (m << threshold) >> y1;
@@ -217,15 +211,15 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
             };
 
             if (ACTIVE_RULES.srsPlus) {
-                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CW]>(Gen::rotate<Gen::Direction::CW>(r));
-                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CCW]>(Gen::rotate<Gen::Direction::CCW>(r));
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CW], Gen::Direction::CW>();
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CCW], Gen::Direction::CCW>();
             }
             else {
-                process.template operator()<Gen::kicks[p == I][Gen::Direction::CW]>(Gen::rotate<Gen::Direction::CW>(r));
-                process.template operator()<Gen::kicks[p == I][Gen::Direction::CCW]>(Gen::rotate<Gen::Direction::CCW>(r));
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CW], Gen::Direction::CW>();
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CCW], Gen::Direction::CCW>();
             }
             if (ACTIVE_RULES.enable180)
-                process.template operator()<Gen::kicks180[p == I]>(Gen::rotate<Gen::Direction::FLIP>(r));
+                process.template operator()<Gen::kicks180[p == I], Gen::Direction::FLIP>();
         }
 
         searched[x][r] |= toSearch[x][r];

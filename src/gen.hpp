@@ -13,6 +13,8 @@ namespace Cobra {
 
 namespace Gen {
 
+constexpr int SPAWN_COL = 4;
+
 template<Piece p, Rotation r>
 consteval bool in_bounds(const int x) {
     static_assert(is_ok(p));

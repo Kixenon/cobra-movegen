@@ -49,15 +49,15 @@ template<Piece p>
 constexpr Coordinates canonical_offset(const Rotation r) {
     if constexpr (p == I) {
         if (r == SOUTH)
-            return {0, 1};
-        if (r == WEST)
             return {1, 0};
+        if (r == WEST)
+            return {0, -1};
     }
     if constexpr (p == S || p == Z) {
-        if (r == WEST)
-            return {1, 0};
         if (r == SOUTH)
             return {0, 1};
+        if (r == WEST)
+            return {1, 0};
     }
     return {0, 0};
 }

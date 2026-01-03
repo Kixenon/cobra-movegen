@@ -65,7 +65,10 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
 
                 if constexpr (Gen::group2(p)) {
                     constexpr Rotation r1 = Gen::rotate<Gen::FLIP>(r);
-                    searched[x][r1] |= toSearch[x][r1] = surface;
+                    if constexpr (r1 == SOUTH)
+                        searched[x][r1] |= toSearch[x][r1] = surface & (surface >> 1);
+                    else
+                        searched[x][r1] |= toSearch[x][r1] = surface;
                     remaining |= remaining_index(x, r1);
                 }
 
@@ -162,7 +165,7 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
             };
             if (x > 0)
                 shift(x - 1);
-            if (x < 9)
+            if (x < COL_NB - 1)
                 shift(x + 1);
         }
 
@@ -265,8 +268,8 @@ Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
                 auto init = [&]<int x>{
                     const Bitboard corners[] = {
                         x > 0 ? b[x - 1] >> 1 : ~0ULL,
-                        x < 9 ? b[x + 1] >> 1 : ~0ULL,
-                        x < 9 ? (b[x + 1] << 1 | 1) : ~0ULL,
+                        x < COL_NB - 1 ? b[x + 1] >> 1 : ~0ULL,
+                        x < COL_NB - 1 ? (b[x + 1] << 1 | 1) : ~0ULL,
                         x > 0 ? (b[x - 1] << 1 | 1) : ~0ULL
                     };
 

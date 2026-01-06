@@ -3,7 +3,7 @@ SRCS = $(wildcard src/*.cpp) apps/bench.cpp
 TARGET = cobra-movegen
 CXX = clang++
 
-FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wno-missing-braces -Wconversion -fno-exceptions -std=c++20
+FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++20
 
 debug = no
 optimise = yes

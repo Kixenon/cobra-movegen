@@ -87,6 +87,8 @@ Inputs get_input(const Board& b, const Move& target, const bool useFinesse, cons
                     m.s = NO_SPIN;
             }
 
+            m.r = Gen::canonical_r<p>(m.r);
+
             if (m == t) {
                 Inputs inputs;
                 for (uint16_t index = m.i; index != GhostMove::root_index(); index = vec[index].prev)

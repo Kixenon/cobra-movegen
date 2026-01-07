@@ -120,16 +120,18 @@ Inputs get_input(const Board& b, const Move& target, const bool useFinesse, cons
                         continue;
 
                     if constexpr (p == T) {
-                        const bool corner[] = {
-                            b.obstructed(m.x - 1, m.y + 1),
-                            b.obstructed(m.x + 1, m.y + 1),
-                            b.obstructed(m.x + 1, m.y - 1),
-                            b.obstructed(m.x - 1, m.y - 1)
-                        };
-                        if (corner[0] + corner[1] + corner[2] + corner[3] >= 3)
-                            m.s = (i >= 4 || (corner[m.r] && corner[Gen::rotate<Gen::Direction::CW>(m.r)])) ? FULL : MINI;
-                        else
-                            m.s = NO_SPIN;
+                        if (ACTIVE_RULES.enableTspin) {
+                            const bool corner[] = {
+                                b.obstructed(m.x - 1, m.y + 1),
+                                b.obstructed(m.x + 1, m.y + 1),
+                                b.obstructed(m.x + 1, m.y - 1),
+                                b.obstructed(m.x - 1, m.y - 1)
+                            };
+                            if (corner[0] + corner[1] + corner[2] + corner[3] >= 3)
+                                m.s = (i >= 4 || (corner[m.r] && corner[Gen::rotate<Gen::Direction::CW>(m.r)])) ? FULL : MINI;
+                            else
+                                m.s = NO_SPIN;
+                        }
                     }
                     update.template operator()<input>();
                     break;

@@ -16,21 +16,21 @@ inline void do_not_optimize(const Tp &value) {
     asm volatile("" : : "m"(value) : "memory");
 }
 
-uint64_t perft(State& state, const Piece* next, unsigned depth) {
+uint64_t perft(Board& b, const Piece* next, unsigned depth) {
     assert(is_ok(*next));
     assert(depth > 0);
 
     if (depth == 1) {
-        const MoveList moves(state.board, *next);
+        const MoveList moves(b, *next);
         do_not_optimize(moves);
         return static_cast<uint64_t>(moves.size());
     }
 
     uint64_t nodes = 0;
-    for (const Move& move : MoveList(state.board, *next)) {
-        State nextState = state;
-        nextState.do_move(move);
-        nodes += perft(nextState, next + 1, depth - 1);
+    for (const Move& move : MoveList(b, *next)) {
+        Board nextBoard = b;
+        nextBoard.do_move(move);
+        nodes += perft(nextBoard, next + 1, depth - 1);
     }
 
     return nodes;
@@ -40,12 +40,12 @@ int main() {
     // Depth should be <= the queue size, but that is left to the user
     constexpr unsigned depth = 7;
     const Piece queue[] = {I, O, L, J, S, Z, T};
-    State state;
-    state.init();
+    Board board;
+    board.clear();
 
     const auto start = std::chrono::high_resolution_clock::now();
 
-    const uint64_t nodes = perft(state, queue, depth);
+    const uint64_t nodes = perft(board, queue, depth);
 
     const auto end = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();

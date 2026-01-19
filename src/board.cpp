@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <string>
 
@@ -60,6 +59,19 @@ void Board::spawn_garbage(const int lines, const int x) {
     col[x] = (col[x] >> lines) << lines;
 }
 
+int Board::do_move(const Move& move) {
+    assert(is_ok(move));
+    assert(!obstructed(move));
+
+    place(move);
+    const Bitboard clears = line_clears();
+    if (!clears)
+        return 0;
+
+    clear_lines(clears);
+    return popcount(clears);
+}
+
 std::string Board::to_string() const {
     constexpr int lines = 20;
     std::string output;
@@ -100,15 +112,11 @@ void State::init() {
 
 MoveInfo State::do_move(const Move& move) {
     assert(is_ok(move));
-    assert(!board.obstructed(move));
 
-    board.place(move);
-    const Bitboard clears = board.line_clears();
-    if (!clears)
+    const int clearCount = board.do_move(move);
+    if (!clearCount)
         return MoveInfo{move.piece(), NO_SPIN, 0, 0, combo = 0, false};
 
-    board.clear_lines(clears);
-    const int clearCount = popcount(clears);
     const SpinType spin = move.spin();
 
     return MoveInfo{

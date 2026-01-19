@@ -31,8 +31,9 @@ public:
     void clear();
     void clear_lines(Bitboard l);
     void place(const Move& move);
-
     void spawn_garbage(int lines, int x);
+
+    int do_move(const Move& move);
 
     std::string to_string() const;
     std::string to_string(const Move& move) const;

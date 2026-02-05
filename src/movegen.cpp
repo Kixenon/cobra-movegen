@@ -248,14 +248,206 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
     return moves;
 }
 
+template<Piece p>
+Move* generate16(const Board& b, Move* moves) {
+    static_assert(is_ok(p));
+
+    constexpr int canonicalSize = Gen::canonical_size<p>();
+    constexpr int searchSize = p == O ? 1 : ROTATION_NB;
+    constexpr Bitboard canonicalMask = canonicalSize == 4 ? ~0ULL : canonicalSize == 2 ? 0xFFFFFFFFULL : 0xFFFFULL;
+    constexpr Bitboard searchMask = searchSize == 4 ? ~0ULL : 0xFFFFULL;
+    constexpr Bitboard sMask = 0x7FFF7FFF7FFF7FFFULL;
+    constexpr Bitboard fMask = 0x1000100010001ULL;
+
+    const Gen::CollisionMap16<p> cm(b);
+
+    int total = 0;
+    unsigned remaining = 0;
+    Bitboard toSearch[COL_NB] = {};
+    Bitboard searched[COL_NB];
+    Bitboard moveSet[COL_NB] = {};
+
+    // Fast init
+    auto init = [&]<int x>() {
+        Bitboard surface = searched[x] = cm[x]; // Include cm in searched to save some instructions later
+        surface |= (surface >> 1) & 0x7FFF7FFF7FFF7FFFULL;
+        surface |= (surface >> 2) & 0x3FFF3FFF3FFF3FFFULL;
+        surface |= (surface >> 4) & 0x0FFF0FFF0FFF0FFFULL;
+        surface |= (surface >> 8) & 0x00FF00FF00FF00FFULL;
+
+        const Bitboard s = ~surface;
+        searched[x] |= toSearch[x] = s;
+        if (s)
+            remaining |= (1 << x);
+
+        moveSet[x] = ~surface & ((surface << 1) | fMask) & canonicalMask;
+        assert(popcount(moveSet[x]) <= searchSize);
+
+        Bitboard m = moveSet[x];
+        total += popcount(~cm[x] & ((cm[x] << 1) | fMask) & canonicalMask) - popcount(m);
+
+        while (m) {
+            const int y = ctz(m);
+            const Rotation r = static_cast<Rotation>(y / 16);
+            *moves++ = Move(p, r, x, y % 16);
+            m &= m - 1;
+        }
+    };
+
+    [&]<size_t... xs>(std::index_sequence<xs...>) {
+        (init.template operator()<xs>(), ...);
+    }(std::make_index_sequence<COL_NB>());
+
+    if (!total)
+        return moves;
+
+    while (remaining) {
+        const int x = ctz(remaining);
+        remaining &= remaining - 1;
+
+        assert(is_ok_x(x));
+        assert(toSearch[x]);
+        assert((toSearch[x] & ~cm[x]) == toSearch[x]);
+
+        Bitboard current = toSearch[x];
+        toSearch[x] = 0;
+
+        // Softdrops
+        {
+            Bitboard m = (current >> 1) & ~searched[x] & sMask;
+            while (m) {
+                current |= m;
+                m = (m >> 1) & sMask & ~searched[x];
+            }
+        }
+
+        // Harddrops
+        {
+            Bitboard m = current & ((cm[x] << 1) | fMask) & searchMask;
+
+            if constexpr (Gen::group2(p))
+                m = (m | (m >> 32)) & canonicalMask;
+
+            m &= ~moveSet[x];
+
+            if (m) {
+                moveSet[x] |= m;
+                total -= popcount(m);
+
+                while (m) {
+                    const int y = ctz(m);
+                    const Rotation r = static_cast<Rotation>(y / 16);
+                    *moves++ = Move(p, r, x, y % 16);
+                    m &= m - 1;
+                }
+
+                if (!total)
+                    return moves;
+            }
+        }
+
+        // Shift
+        {
+            auto shift = [&](int x1) {
+                const Bitboard m = current & ~searched[x1];
+                if (m) {
+                    toSearch[x1] |= m;
+                    remaining |= (1 << x1);
+                }
+            };
+            if (x > 0)
+                shift(x - 1);
+            if (x < COL_NB - 1)
+                shift(x + 1);
+        }
+
+        // Rotate (Very Ugly)
+        if constexpr (p != O) {
+            auto process = [&]<auto kicksRot, Gen::Direction d>() {
+                [&]<size_t... rs>(std::index_sequence<rs...>) {
+                    auto try_rotate = [&]<Rotation r>() {
+                        constexpr int shiftSrc = r * 16;
+                        Bitboard src = (current >> shiftSrc) & 0xFFFFULL;
+
+                        if (!src) return;
+
+                        constexpr Rotation r1 = Gen::rotate<d>(r);
+                        constexpr int shiftDest = r1 * 16;
+                        constexpr Coordinates off = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(r1);
+                        const auto& kicks = kicksRot[r];
+                        const size_t N = (!ACTIVE_RULES.srsPlus && kicks.size() == 6) ? 2 : kicks.size();
+
+                        for (size_t i = 0; i < N && src; ++i) {
+                            const int x1 = x + kicks[i].x + off.x;
+                            if (!is_ok_x(x1))
+                                continue;
+
+                            constexpr int threshold = 3;
+                            const int shiftVal = threshold + kicks[i].y + off.y;
+
+                            Bitboard m = (src << shiftVal) >> threshold;
+                            m &= ~(cm[x1] >> shiftDest) & 0xFFFFULL;
+                            src ^= (m << threshold) >> shiftVal;
+
+                            Bitboard visited = searched[x1];
+                            if (x1 == x)
+                                visited |= current;
+                            m &= ~(visited >> shiftDest);
+
+                            if (m) {
+                                toSearch[x1] |= (m << shiftDest);
+                                remaining |= (1 << x1);
+                            }
+                        }
+                    };
+                    (try_rotate.template operator()<static_cast<Rotation>(rs)>(), ...);
+                }(std::make_index_sequence<ROTATION_NB>{});
+            };
+
+            if (ACTIVE_RULES.srsPlus) {
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CW], Gen::Direction::CW>();
+                process.template operator()<Gen::kicks[(p == I) * 2][Gen::Direction::CCW], Gen::Direction::CCW>();
+            } else {
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CW], Gen::Direction::CW>();
+                process.template operator()<Gen::kicks[p == I][Gen::Direction::CCW], Gen::Direction::CCW>();
+            }
+            if (ACTIVE_RULES.enable180)
+                process.template operator()<Gen::kicks180[p == I], Gen::Direction::FLIP>();
+        }
+
+        searched[x] |= current;
+    }
+
+    return moves;
+}
+
+Move* generate16(const Board& b, Move* moves, const Piece p) {
+    switch(p) {
+        case I: return generate16<I>(b, moves);
+        case O: return generate16<O>(b, moves);
+        case T: return generate16<T>(b, moves);
+        case L: return generate16<L>(b, moves);
+        case J: return generate16<J>(b, moves);
+        case S: return generate16<S>(b, moves);
+        case Z: return generate16<Z>(b, moves);
+        default: __builtin_unreachable();
+    }
+}
+
 Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
     assert(ACTIVE_RULES.spawnRow > 0);
-    const bool slow = [&]{
+    const int h = [&]{
         Bitboard m = b[0];
         for (int i = 1; i < COL_NB; ++i)
             m |= b[i];
-        return bitlen(m) > ACTIVE_RULES.spawnRow - 3;
+        return bitlen(m);
     }();
+
+    const bool slow = h > ACTIVE_RULES.spawnRow - 3;
+    const bool low = !slow && h <= 13;
+
+    if (low && (p != T || !ACTIVE_RULES.enableTspin))
+        return generate16(b, moves, p);
 
     switch(p) {
         case I: return generate<I>(Gen::CollisionMap<I>(b), moves, slow, force);
@@ -299,7 +491,7 @@ Move* generate(const Board& b, Move* moves, const Piece p, const bool force) {
 
                 if (checkSpin)
                     return generate<TSPIN>(cm, moves, slow, force, spinMap);
-                return generate<T>(cm, moves, slow, force);
+                return low ? generate16(b, moves, p) : generate<T>(cm, moves, slow, force);
             } else
                 return generate<T>(Gen::CollisionMap<T>(b), moves, slow, force);
         case L: return generate<L>(Gen::CollisionMap<L>(b), moves, slow, force);

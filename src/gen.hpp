@@ -95,6 +95,43 @@ public:
     const Bitboard* operator[](const int x) const { return board[x]; }
 };
 
+template<Piece p>
+class CollisionMap16 {
+private:
+    Bitboard board[COL_NB] = {};
+
+public:
+    explicit CollisionMap16(const Board& b) {
+        auto init = [&]<int x>() {
+            auto init1 = [&]<Rotation r>() {
+                constexpr Rotation rr = canonical_r<p>(r);
+                if constexpr (!in_bounds<p, rr>(x)) {
+                    return 0xFFFFULL;
+                } else {
+                    constexpr PieceCoordinates pc = piece_table(p, rr);
+
+                    Bitboard result = b[x];
+                    result |= (pc[0].y < 0) ? ~(~b[x + pc[0].x] << -pc[0].y) : (b[x + pc[0].x] >> pc[0].y);
+                    result |= (pc[1].y < 0) ? ~(~b[x + pc[1].x] << -pc[1].y) : (b[x + pc[1].x] >> pc[1].y);
+                    result |= (pc[2].y < 0) ? ~(~b[x + pc[2].x] << -pc[2].y) : (b[x + pc[2].x] >> pc[2].y);
+
+                    return result & 0xFFFFULL;
+                }
+            };
+
+            [&]<size_t... rs>(std::index_sequence<rs...>) {
+                ((board[x] |= (init1.template operator()<static_cast<Rotation>(rs)>() << (rs * 16))), ...);
+            }(std::make_index_sequence<ROTATION_NB>{});
+        };
+
+        [&]<size_t... xs>(std::index_sequence<xs...>) {
+            (init.template operator()<xs>(), ...);
+        }(std::make_index_sequence<COL_NB>{});
+    }
+
+    constexpr Bitboard operator[](const int x) const { return board[x]; }
+};
+
 enum Direction {
     CW, CCW, FLIP, Direction_NB = 2
 };

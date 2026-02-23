@@ -70,7 +70,7 @@ private:
 
 public:
     explicit CollisionMap(const Board& b) {
-        auto init = [&]<int x, Rotation r>{
+        auto init = [&]<int x, Rotation r>() -> Bitboard {
             if constexpr (!in_bounds<p, r>(x))
                 return ~0ULL;
             constexpr PieceCoordinates pc = piece_table(p, r);

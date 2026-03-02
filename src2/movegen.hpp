@@ -200,7 +200,7 @@ private:
         output:
 
         [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((board[rs] = moves[rs].template cast_height<Board<>::H>()), ...);
+            ((list[rs] = moves[rs].template cast_height<Board<>::H>()), ...);
         }(std::make_index_sequence<cSize>{});
     }
 
@@ -240,7 +240,7 @@ private:
 
 public:
 
-    Gen::SmearedBoard<Board<>, cSize> board;
+    Gen::SmearedBoard<Board<>, cSize> list{};
 
     constexpr MoveList() = default;
     MoveList(const Board<>& b) { generate(b); }
@@ -248,7 +248,7 @@ public:
     constexpr int popcount() const {
         int result = 0;
         [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((result += board[rs].popcount()), ...);
+            ((result += list[rs].popcount()), ...);
         }(std::make_index_sequence<cSize>{});
         return result;
     }
@@ -256,7 +256,7 @@ public:
     template <typename Fn>
     void for_each_move(Fn&& fn) const {
         [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((board[rs].for_each_set_bit([&](int x, int y) {
+            ((list[rs].for_each_set_bit([&](int x, int y) {
                 fn.template operator()<Rotation(rs)>(x, y);
             })), ...);
         }(std::make_index_sequence<cSize>{});

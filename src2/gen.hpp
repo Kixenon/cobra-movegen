@@ -109,7 +109,7 @@ constexpr SB landable_map(const SB& sb) {
 enum Direction {
     CW, CCW, FLIP
 };
-constexpr size_t DIRECTION_NB = 3;
+constexpr size_t DIRECTION_NB = 2;
 
 template <Direction d>
 constexpr Rotation rotate(const Rotation r) {

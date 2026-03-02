@@ -47,16 +47,22 @@ private:
         constexpr auto ceiling = BoardT::H - T_CAST;
         assert(y < ceiling);
 
-        if (BoardT::H > SPAWN_Y && y > SPAWN_Y - T_SPAWN) [[unlikely]] {
-            if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
-                return;
+        // 500 iq syntax
+        do {
+            // Slow init
+            if constexpr (BoardT::H > SPAWN_Y)
+                if (y > SPAWN_Y - T_SPAWN) [[unlikely]] {
+                    if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
+                        return;
 
-            search = {};
-            search[Rotation::NORTH].template set<SPAWN_X, SPAWN_Y>();
+                    search = {};
+                    search[Rotation::NORTH].template set<SPAWN_X, SPAWN_Y>();
 
-            remaining.set();
+                    remaining.set();
+                    break;
+                }
 
-        } else {
+            // Fast init
             [&]<size_t... rs>(std::index_sequence<rs...>) {
                 (([&]{
                     constexpr Rotation r(rs);
@@ -106,8 +112,9 @@ private:
                 // done.set();
                 goto output;
             }
-        }
+        } while (false);
 
+        // BFS
         {
             sSB unsearched;
             [&]<size_t... rs>(std::index_sequence<rs...>) {

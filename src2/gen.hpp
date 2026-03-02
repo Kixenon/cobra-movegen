@@ -14,63 +14,63 @@ namespace Gen {
 
 constexpr int SPAWN_COL = 4;
 
-template<Piece p, Rotation r>
+template <Piece p, Rotation r>
 consteval bool in_bounds(const int x) {
-    static_assert(is_ok(p));
-    static_assert(is_ok(r));
+    static_assert(p.is_ok());
+    static_assert(r.is_ok());
     constexpr PieceCoordinates pc = piece_table(p, r);
     return is_ok_x(x) && is_ok_x(pc[0].x + x) && is_ok_x(pc[1].x + x) && is_ok_x(pc[2].x + x);
 }
 
 consteval bool group2(const Piece p) {
-    return p == I || p == S || p == Z;
+    return p == Piece::I || p == Piece::S || p == Piece::Z;
 }
 
 consteval bool group3(const Piece p) {
-    return p == T || p == L || p == J;
+    return p == Piece::T || p == Piece::L || p == Piece::J;
 }
 
-template<Piece p>
-consteval int canonical_size() {
-    if constexpr (p == O)
+template <Piece p>
+consteval size_t canonical_size() {
+    if constexpr (p == Piece::O)
         return 1;
     if constexpr (group2(p))
         return 2;
     return 4; // L, J, T
 }
 
-template<Piece p>
+template <Piece p>
 consteval Rotation canonical_r(const Rotation r){
-    if constexpr (p == O)
-        return NORTH;
+    if constexpr (p == Piece::O)
+        return Rotation::NORTH;
     if constexpr (group2(p))
-        return static_cast<Rotation>(r & 1);
+        return Rotation(r & 1);
     return r; // L, J, T
 }
 
-template<Piece p>
+template <Piece p>
 consteval Coordinates canonical_offset(const Rotation r) {
-    if constexpr (p == I) {
-        if (r == SOUTH)
+    if constexpr (p == Piece::I) {
+        if (r == Rotation::SOUTH)
             return {1, 0};
-        if (r == WEST)
+        if (r == Rotation::WEST)
             return {0, -1};
     }
-    if constexpr (p == S || p == Z) {
-        if (r == SOUTH)
+    if constexpr (p == Piece::S || p == Piece::Z) {
+        if (r == Rotation::SOUTH)
             return {0, 1};
-        if (r == WEST)
+        if (r == Rotation::WEST)
             return {1, 0};
     }
     return {0, 0};
 }
 
-template<typename T, size_t N>
+template <typename T, size_t N>
 using SmearedBoard = std::array<T, N>;
 
 template <typename BoardT, Piece p>
 constexpr auto usable_map(const BoardT& b) {
-    static_assert(is_ok(p));
+    static_assert(p.is_ok());
 
     SmearedBoard<BoardT, canonical_size<p>()> result;
 
@@ -89,7 +89,7 @@ constexpr auto usable_map(const BoardT& b) {
         }(std::make_index_sequence<3>());
     };
     [&]<size_t... rs>(std::index_sequence<rs...>) {
-        ((init.template operator()<static_cast<Rotation>(rs)>()), ...);
+        ((init.template operator()<Rotation(rs)>()), ...);
     }(std::make_index_sequence<result.size()>{});
 
     return result;
@@ -107,27 +107,28 @@ constexpr SB landable_map(const SB& sb) {
 }
 
 enum Direction {
-    CW, CCW, FLIP, Direction_NB = 2
+    CW, CCW, FLIP
 };
+constexpr size_t DIRECTION_NB = 3;
 
-template<Direction d>
+template <Direction d>
 constexpr Rotation rotate(const Rotation r) {
-    switch(d) {
-        case CW: return static_cast<Rotation>((static_cast<int>(r) + 1) & 3);
-        case CCW: return static_cast<Rotation>((static_cast<int>(r) + 3) & 3);
-        case FLIP: return static_cast<Rotation>((static_cast<int>(r) + 2) & 3);
-        default: __builtin_unreachable();
+    switch (d) {
+        case CW: return Rotation((r + 1) & 3);
+        case CCW: return Rotation((r + 3) & 3);
+        case FLIP: return Rotation((r + 2) & 3);
+        default: std::unreachable();
     }
 }
 
-template<size_t N>
+template <size_t N>
 using Offsets = std::array<Coordinates, N>;
 
-template<size_t N>
-using OffsetsRot = std::array<Offsets<N>, ROTATION_NB>;
+template <size_t N>
+using OffsetsRot = std::array<Offsets<N>, Rotation::size>;
 
 #define e Coordinates
-constexpr std::array<std::array<OffsetsRot<5>, Direction_NB>, 3> kicks = {{
+constexpr std::array<std::array<OffsetsRot<5>, DIRECTION_NB>, 3> kicks = {{
     {{ // LJSZT
         {{ // CW
             {e( 0,  0), e(-1,  0), e(-1,  1), e( 0, -2), e(-1, -2)},

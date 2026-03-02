@@ -1,6 +1,6 @@
 CXX = clang++
 
-FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++20
+FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++23
 
 debug ?= no
 optimise ?= yes

@@ -18,14 +18,14 @@ struct Board {
     static constexpr int W = COL_NB;
     static constexpr int H = Height;
 
-    using U = uint64_t;
-    static constexpr int Tbits = std::numeric_limits<U>::digits;
+    using T = uint64_t;
+    static constexpr int Tbits = std::numeric_limits<T>::digits;
     static constexpr int Tlines = Tbits / W;
     static constexpr int Tn = ((H - 1) / Tlines) + 1;
-    static constexpr U Tall = static_cast<U>(-1) >> (Tbits - (Tlines * W));
+    static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
 
-    using Bitboard [[gnu::vector_size(Tn * sizeof(U))]] = U;
-    // static_assert(sizeof(Bitboard) == Tn * sizeof(U));
+    using Bitboard [[gnu::vector_size(Tn * sizeof(T))]] = T;
+    // static_assert(sizeof(Bitboard) == Tn * sizeof(T));
 
     Bitboard data;
 
@@ -45,23 +45,23 @@ struct Board {
     template <int x, int y>
     constexpr void set() {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<U>(1) << ((y % Tlines) * W + x);
+        data[y / Tlines] |= static_cast<T>(1) << ((y % Tlines) * W + x);
     }
 
     void set(const int x, const int y) {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<U>(1) << ((y % Tlines) * W + x);
+        data[y / Tlines] |= static_cast<T>(1) << ((y % Tlines) * W + x);
     }
 
     template <int x, int y>
     constexpr bool get() const {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<U>(1) << ((y % Tlines) * W + x));
+        return data[y / Tlines] & (static_cast<T>(1) << ((y % Tlines) * W + x));
     }
 
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<U>(1) << ((y % Tlines) * W + x));
+        return data[y / Tlines] & (static_cast<T>(1) << ((y % Tlines) * W + x));
     }
 
     template <int x>
@@ -78,15 +78,14 @@ struct Board {
     // static constexpr Bitboard shift_mask() {
     static consteval Bitboard shift_mask() {
         Board b{};
-        if constexpr (dx > 0) {
+        if constexpr (dx > 0)
             [&]<size_t... idx>(std::index_sequence<idx...>) {
                 (b.set<idx / H, idx % H>(), ...);
             }(std::make_index_sequence<dx * H>());
-        } else if constexpr (dx < 0) {
+        else if constexpr (dx < 0)
             [&]<size_t... idx>(std::index_sequence<idx...>) {
                 (b.set<W - 1 - (idx / H), idx % H>(), ...);
             }(std::make_index_sequence<-dx * H>());
-        }
         return (~b).data;
     }
 
@@ -98,11 +97,11 @@ struct Board {
         return result;
     }
 
-    template<typename Fn>
+    template <typename Fn>
     void for_each_set_bit(Fn&& fn) const {
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
-                U bits = data[i];
+                T bits = data[i];
                 while (bits) {
                     const int idx = std::countr_zero(bits);
                     const int y = (static_cast<int>(i) * Tlines) + (idx / W);
@@ -116,7 +115,7 @@ struct Board {
 
     constexpr int max_y() const {
         for (int lane = Tn - 1; lane >= 0; --lane) {
-            const U bits = data[static_cast<size_t>(lane)];
+            const T bits = data[static_cast<size_t>(lane)];
             if (!bits)
                 continue;
 
@@ -125,11 +124,10 @@ struct Board {
             assert(y < H);
             return y;
         }
-
         return 0;
     }
 
-    template<int OtherH>
+    template <int OtherH>
     constexpr Board<OtherH> cast_height() const {
         Board<OtherH> result{};
         [&]<size_t... i>(std::index_sequence<i...>) {
@@ -138,44 +136,7 @@ struct Board {
         return result;
     }
 
-    // constexpr Board populate() const {
-    //     return Board{.data = (one_mask<W - 1>() - data) ^ one_mask<W - 1>()};
-    // }
-
-    // constexpr Board remove_ones_after_zero() const {
-    //     Bitboard b = data | ~all();
-    //     bool found = false;
-    //     [&]<size_t... i>(std::index_sequence<i...>) {
-    //         (([&]{
-    //             const size_t idx = Tn - 1 - i;
-    //             if (found) {
-    //                 b[idx] = 0;
-    //             } else {
-    //                 const int ones = std::countl_one(b[idx]);
-    //                 if (ones < Tbits) {
-    //                     found = true;
-    //                     b[idx] &= ~((~static_cast<U>(0)) >> ones);
-    //                 }
-    //             }
-    //         }()), ...);
-    //     }(std::make_index_sequence<Tn>());
-    //     return Board{.data = b & all()};
-
-    //     // Board b{.data = all() & ~data};
-    //     // b |= b.template shifted<0, -1>();
-    //     // b |= b.template shifted<0, -2>();
-    //     // b |= b.template shifted<0, -4>();
-    //     // if constexpr (H >= 8)
-    //     //     b |= b.template shifted<0, -8>();
-    //     // if constexpr (H >= 16)
-    //     //     b |= b.template shifted<0, -16>();
-    //     // // if constexpr (H >= 32)
-    //     // //     b |= b.template shifted<0, -32>();
-
-    //     // return Board{.data = all() & ~b.data};
-    // }
-
-    template<int dx, int dy>
+    template <int dx, int dy>
     constexpr Board& shift() {
         if constexpr (dx == 0 && dy == 0)
             return *this;
@@ -187,7 +148,7 @@ struct Board {
                     result[i] = [&]{
                         constexpr size_t index = right ? i - removed : i + removed;
                         if constexpr (index >= Tn)
-                            return static_cast<U>(0);
+                            return static_cast<T>(0);
                         else
                             return bb[index];
                     }()
@@ -239,7 +200,7 @@ struct Board {
         return *this;
     }
 
-    template<int dx, int dy>
+    template <int dx, int dy>
     constexpr Board shifted() const {
         Board result = *this;
         result.shift<dx, dy>();
@@ -264,7 +225,7 @@ struct Board {
         }(std::make_index_sequence<Tn>());
 
         // No measurable difference in speed
-        // U temp{};
+        // T temp{};
         // [&]<size_t... i>(std::index_sequence<i...>) {
         //     ((temp |= data[i]), ...);
         // }(std::make_index_sequence<Tn>());
@@ -328,15 +289,15 @@ struct Board {
         Bitboard cleared{};
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
-                const U ld = data[i];
-                const U ll = lines.data[i];
-                U packed = 0;
+                const T ld = data[i];
+                const T ll = lines.data[i];
+                T packed = 0;
                 int dest = 0;
 
                 [&]<size_t... r>(std::index_sequence<r...>) {
                     (([&]{
                         constexpr int src = r * W;
-                        constexpr U rowMask = (static_cast<U>(1) << W) - 1;
+                        constexpr T rowMask = (static_cast<T>(1) << W) - 1;
                         if (((ll >> src) & 1) == 0) {
                             packed |= ((ld >> src) & rowMask) << dest;
                             dest += W;
@@ -351,7 +312,7 @@ struct Board {
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
                 constexpr int dest = static_cast<int>(i);
-                U result = 0;
+                T result = 0;
 
                 [&]<size_t... j>(std::index_sequence<j...>) {
                     (([&]{
@@ -372,9 +333,9 @@ struct Board {
         }(std::make_index_sequence<Tn>());
     }
 
-    template<Piece p, Rotation r>
+    template <Piece p, Rotation r>
     void do_move(const int x, const int y) {
-        static_assert(is_ok(p) && is_ok(r));
+        static_assert(p.is_ok() && r.is_ok());
         constexpr PieceCoordinates pc = piece_table(p, r);
 
         set(x, y);
@@ -385,32 +346,6 @@ struct Board {
         const auto clears = line_clears();
         if (clears.any())
             clear_lines(clears);
-    }
-
-    template<Piece p>
-    void do_move(Board<>& b, const Move& move) {
-        assert(is_ok(move.rotation));
-        switch(move.rotation) {
-            case NORTH: return b.do_move<p, NORTH>(move.x, move.y);
-            case EAST:  return b.do_move<p, EAST>(move.x, move.y);
-            case SOUTH: return b.do_move<p, SOUTH>(move.x, move.y);
-            case WEST:  return b.do_move<p, WEST>(move.x, move.y);
-            default: __builtin_unreachable();
-        }
-    }
-
-    void do_move(const Move& move) {
-        assert(is_ok(move.piece));
-        switch(move.piece) {
-            case I: return do_move<I>(*this, move);
-            case O: return do_move<O>(*this, move);
-            case T: return do_move<T>(*this, move);
-            case L: return do_move<L>(*this, move);
-            case J: return do_move<J>(*this, move);
-            case S: return do_move<S>(*this, move);
-            case Z: return do_move<Z>(*this, move);
-            default: __builtin_unreachable();
-        }
     }
 
     // std::string to_string() const {

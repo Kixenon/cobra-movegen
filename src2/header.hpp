@@ -1,10 +1,12 @@
 #ifndef HEADER_HPP
 #define HEADER_HPP
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 
 namespace Cobra2 {
 
@@ -14,38 +16,68 @@ namespace Cobra2 {
 constexpr int COL_NB = 10;
 constexpr int ROW_NB = 48;
 
-enum Piece {
-    I, O, T, L, J, S, Z, PIECE_NB = 7, NO_PIECE = 7
+struct Piece {
+    enum Type {
+        I, O, T, L, J, S, Z, NO_PIECE
+    };
+
+    static constexpr std::array all = {I, O, T, L, J, S, Z};
+
+    Type value;
+
+    constexpr Piece(Type v) : value(v) {}
+
+    constexpr operator size_t() const {
+        return static_cast<size_t>(value);
+    }
+    constexpr bool operator!() const {
+        return value == NO_PIECE;
+    }
+
+    constexpr bool is_ok() const {
+        return std::ranges::contains(all, *this);
+    }
+
+    template <typename Fn>
+    constexpr auto route(Fn&& fn) const {
+        switch (value) {
+            case I: return fn.template operator()<I>();
+            case O: return fn.template operator()<O>();
+            case T: return fn.template operator()<T>();
+            case L: return fn.template operator()<L>();
+            case J: return fn.template operator()<J>();
+            case S: return fn.template operator()<S>();
+            case Z: return fn.template operator()<Z>();
+            default: std::unreachable();
+        }
+    }
 };
 
-enum Rotation {
-    NORTH, EAST, SOUTH, WEST, ROTATION_NB = 4
-};
+struct Rotation {
+    enum Type {
+        NORTH, EAST, SOUTH, WEST
+    };
 
-// enum SpinType {
-//     NO_SPIN, MINI, FULL, SPIN_NB = 3
-// };
+    static constexpr std::array all = {NORTH, EAST, SOUTH, WEST};
+    static constexpr size_t size = all.size();
 
-constexpr Piece allPieces[] = {
-    I, O, T, L, J, S, Z
-};
+    Type value;
 
-constexpr Rotation allRotations[] = {
-    NORTH, EAST, SOUTH, WEST
+    constexpr Rotation(Type v) : value(v) {}
+    explicit constexpr Rotation(size_t v) : value(static_cast<Type>(v)) {}
+
+    constexpr operator size_t() const {
+        return static_cast<size_t>(value);
+    }
+
+    constexpr bool is_ok() const {
+        return std::ranges::contains(all, *this);
+    }
 };
 
 /*----------------------------------------------------------------------------*/
 // Debug functions
 
-constexpr bool is_ok(const Piece p) {
-    return p >= I && p < PIECE_NB;
-}
-constexpr bool is_ok(const Rotation r) {
-    return r >= NORTH && r < ROTATION_NB;
-}
-// constexpr bool is_ok(const SpinType s) {
-//     return s >= NO_SPIN && s < SPIN_NB;
-// }
 constexpr bool is_ok_x(const int x) {
     return x >= 0 && x < COL_NB;
 }
@@ -79,40 +111,38 @@ struct Move {
     // SpinType spin;
 
     static constexpr Move none() {
-        return Move{.piece = NO_PIECE, .rotation = NORTH, .x = 0, .y = 0};
+        return Move{.piece = Piece::NO_PIECE, .rotation = Rotation::NORTH, .x = 0, .y = 0};
     }
 };
 
 /*----------------------------------------------------------------------------*/
 // Functions
 
-constexpr bool operator!(const Piece& p) { return p == NO_PIECE; }
-
 constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
-    assert(is_ok(p));
-    assert(is_ok(r));
+    assert(p.is_ok());
+    assert(r.is_ok());
 
     using C = Coordinates;
     constexpr auto make_piece = [](const Piece p) {
-        switch(p) {
-            case I: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 2, 0)}; // ––––
-            case O: return PieceCoordinates{C( 1, 0), C( 0, 1), C( 1, 1)}; // ::
-            case T: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 0, 1)}; // _|_
-            case L: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 1, 1)}; // __|
-            case J: return PieceCoordinates{C(-1, 0), C( 1, 0), C(-1, 1)}; // ––;
-            case S: return PieceCoordinates{C(-1, 0), C( 0, 1), C( 1, 1)}; // S
-            case Z: return PieceCoordinates{C(-1, 1), C( 0, 1), C( 1, 0)}; // Z
-            default: __builtin_unreachable();
+        switch (p) {
+            case Piece::I: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 2, 0)}; // ––––
+            case Piece::O: return PieceCoordinates{C( 1, 0), C( 0, 1), C( 1, 1)}; // ::
+            case Piece::T: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 0, 1)}; // _|_
+            case Piece::L: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 1, 1)}; // __|
+            case Piece::J: return PieceCoordinates{C(-1, 0), C( 1, 0), C(-1, 1)}; // ––;
+            case Piece::S: return PieceCoordinates{C(-1, 0), C( 0, 1), C( 1, 1)}; // S
+            case Piece::Z: return PieceCoordinates{C(-1, 1), C( 0, 1), C( 1, 0)}; // Z
+            default: std::unreachable();
         }
     };
 
     constexpr auto rotate = [](const Rotation r, const Coordinates c) {
-        switch(r) {
-            case NORTH: return c;
-            case EAST:  return C(c.y, -c.x);
-            case SOUTH: return C(-c.x, -c.y);
-            case WEST:  return C(-c.y, c.x);
-            default: __builtin_unreachable();
+        switch (r) {
+            case Rotation::NORTH: return c;
+            case Rotation::EAST:  return C(c.y, -c.x);
+            case Rotation::SOUTH: return C(-c.x, -c.y);
+            case Rotation::WEST:  return C(-c.y, c.x);
+            default: std::unreachable();
         }
     };
 

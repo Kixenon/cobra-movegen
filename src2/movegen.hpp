@@ -24,12 +24,12 @@ private:
     // Temporary
     static constexpr int SPAWN_X = 4;
     static constexpr int SPAWN_Y = 19;
-    static constexpr int THRESHOLD = 3;
+    static constexpr int T_CAST = p == Piece::I || p == Piece::T ? 3 : 2 - (p == Piece::O);
+    static constexpr int T_SPAWN = p == Piece::I ? 3 : 2 - (p == Piece::O);
 
     template <typename BoardT>
     void generate(const BoardT& b, const int y) {
         static_assert(p.is_ok());
-        assert(y < BoardT::H - THRESHOLD);
 
         constexpr auto sSize = p == Piece::O ? 1 : Rotation::size;
 
@@ -37,22 +37,22 @@ private:
         using sSB = Gen::SmearedBoard<BoardT, sSize>;
 
         const cSB usable = Gen::usable_map<BoardT, p>(b);
-        sSB search;
-
         const cSB candidates = Gen::landable_map<cSB, p>(usable);
         cSB moves{};
+        sSB search;
 
         std::bitset<cSize> remaining;
         std::bitset<sSize> done = 0;
 
-        // if (y > SPAWN_Y - THRESHOLD) [[unlikely]] {
-        if (BoardT::H > SPAWN_Y && y > SPAWN_Y - THRESHOLD) [[unlikely]] {
-            constexpr int spawnY = std::min(SPAWN_Y, BoardT::H - 1);
-            if (!usable[Rotation::NORTH].template get<SPAWN_X, spawnY>())
+        constexpr auto ceiling = BoardT::H - T_CAST;
+        assert(y < ceiling);
+
+        if (BoardT::H > SPAWN_Y && y > SPAWN_Y - T_SPAWN) [[unlikely]] {
+            if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
                 return;
 
             search = {};
-            search[Rotation::NORTH].template set<SPAWN_X, spawnY>();
+            search[Rotation::NORTH].template set<SPAWN_X, SPAWN_Y>();
 
             remaining.set();
 
@@ -65,13 +65,13 @@ private:
                     surface |= surface.template shifted<0, -1>();
                     surface |= surface.template shifted<0, -2>();
 
-                    if constexpr (BoardT::H - THRESHOLD >= 4)
+                    if constexpr (ceiling >= 4)
                         surface |= surface.template shifted<0, -4>();
-                    if constexpr (BoardT::H - THRESHOLD >= 8)
+                    if constexpr (ceiling >= 8)
                         surface |= surface.template shifted<0, -8>();
-                    if constexpr (BoardT::H - THRESHOLD >= 16)
+                    if constexpr (ceiling >= 16)
                         surface |= surface.template shifted<0, -16>();
-                    // if constexpr (BoardT::H - THRESHOLD >= 32) // Shouldn't be needed since it will be routed to slow init
+                    // if constexpr (ceiling >= 32) // Shouldn't be needed since it will be routed to slow init
                     //     surface |= surface.template shifted<0, -32>();
 
                     search[r] = ~surface;
@@ -212,7 +212,7 @@ private:
 
         const int y = b.max_y();
         const int target = [&]{
-            const int y1 = y + THRESHOLD;
+            const int y1 = y + T_CAST;
             if (y1 < H1)
                 return H1;
             if (y1 < H2)

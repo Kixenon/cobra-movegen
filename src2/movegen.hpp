@@ -52,7 +52,8 @@ constexpr int SPAWN_Y = 19;
 constexpr int THRESHOLD = 3;
 constexpr int H1 = 6;
 constexpr int H2 = 12;
-constexpr int H3 = 24;
+constexpr int H3 = 18;
+constexpr int H4 = 24;
 
 // Stats
 // size_t counter = 0;
@@ -87,8 +88,6 @@ MoveList generate(const BoardT& b, const int y) {
 
     std::bitset<cSize> remaining;
     std::bitset<sSize> done = 0;
-    // unsigned int done = 0;
-    // unsigned int remaining = (1u << sSize) - 1;
 
     // if (y > SPAWN_Y - THRESHOLD) [[unlikely]] {
     if (BoardT::H > SPAWN_Y && y > SPAWN_Y - THRESHOLD) [[unlikely]] {
@@ -297,6 +296,8 @@ MoveList generate(const Board<>& b) {
             return H2;
         if (y1 < H3)
             return H3;
+        if (y1 < H4)
+            return H4;
         return Board<>::H;
     }();
 
@@ -304,6 +305,7 @@ MoveList generate(const Board<>& b) {
         case H1: return generate<H1, p>(b, y);
         case H2: return generate<H2, p>(b, y);
         case H3: return generate<H3, p>(b, y);
+        case H4: return generate<H4, p>(b, y);
         default: return generate<Board<>, p>(b, y);
     }
 }

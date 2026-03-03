@@ -14,30 +14,61 @@
 
 namespace Cobra2 {
 
-template <int Height = ROW_NB>
-struct Board {
+struct BoardBase {
     static constexpr int W = COL_NB;
-    static constexpr int H = Height;
-
-    static constexpr std::array Y = {6, 12, 18, 24};
 
     using T = uint64_t;
     static constexpr int Tbits = std::numeric_limits<T>::digits;
     static constexpr int Tlines = Tbits / W;
-    static constexpr int Tn = ((H - 1) / Tlines) + 1;
     static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
+
+    static constexpr std::array Y = {6, 12, 18, 24};
+    static constexpr int H = ROW_NB;
+
+    static constexpr bool is_ok_h(const int h) {
+        return std::ranges::contains(Y, h) || h == H;
+    }
+
+    static constexpr int height_target(const int h) {
+        #pragma unroll Y.size()
+        for (const auto i : Y)
+            if (h < i)
+                return i;
+        return H;
+    }
+
+    template <typename Fn>
+    static constexpr auto route(const int h, Fn&& fn) {
+        assert(is_ok_h(h));
+
+        switch (h) {
+            case Y[0]: return fn.template operator()<Y[0]>();
+            case Y[1]: return fn.template operator()<Y[1]>();
+            case Y[2]: return fn.template operator()<Y[2]>();
+            case Y[3]: return fn.template operator()<Y[3]>();
+            default: return fn.template operator()<H>();
+            // Somehow using the below is quite a lot slower?
+            // case H: return fn.template operator()<H>();
+            // default: std::unreachable();
+        }
+    }
+};
+
+template <int Height = ROW_NB>
+struct Board : public BoardBase {
+    static constexpr int H = Height;
+    static constexpr int Tn = ((H - 1) / Tlines) + 1;
 
     using Bitboard [[gnu::vector_size(Tn * sizeof(T))]] = T;
     // static_assert(sizeof(Bitboard) == Tn * sizeof(T));
 
     Bitboard data;
 
+    static constexpr int height_target(const int h) = delete;
+    static constexpr auto route(const int h) = delete;
+
     static constexpr bool is_ok_y_local(const int y) {
         return y >= 0 && y < H;
-    }
-
-    static constexpr bool is_ok_h(const int h) {
-        return std::ranges::contains(Y, h) || h == Board<>::H;
     }
 
     template <int x, int y>
@@ -86,13 +117,18 @@ struct Board {
     static consteval Bitboard shift_mask() {
         Board b{};
         if constexpr (dx > 0)
-            [&]<size_t... idx>(std::index_sequence<idx...>) {
-                (b.set<idx / H, idx % H>(), ...);
-            }(std::make_index_sequence<dx * H>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                (b.set<i / Tlines, i % Tlines>(), ...);
+            }(std::make_index_sequence<dx * Tlines>());
         else if constexpr (dx < 0)
-            [&]<size_t... idx>(std::index_sequence<idx...>) {
-                (b.set<W - 1 - (idx / H), idx % H>(), ...);
-            }(std::make_index_sequence<-dx * H>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                (b.set<W - 1 - (i / Tlines), i % Tlines>(), ...);
+            }(std::make_index_sequence<-dx * Tlines>());
+
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((b.data[i + 1] = b.data[0]), ...);
+        }(std::make_index_sequence<Tn - 1>());
+
         return (~b).data;
     }
 
@@ -223,14 +259,6 @@ struct Board {
         return Board{.data = data ^ other.data};
     }
 
-    constexpr void place(const Move& move) {
-        const PieceCoordinates pc = piece_table(move.piece, move.rotation);
-        set(move.x, move.y);
-        set(move.x + pc[0].x, move.y + pc[0].y);
-        set(move.x + pc[1].x, move.y + pc[1].y);
-        set(move.x + pc[2].x, move.y + pc[2].y);
-    }
-
     constexpr Board line_clears() const {
         return Board{.data = data & ((data & ~one_mask<W - 1>()) + one_mask<0>()) & one_mask<W - 1>()};
     }
@@ -296,7 +324,7 @@ struct Board {
     template <Piece p, Rotation r>
     void do_move(const int x, const int y) {
         static_assert(p.is_ok() && r.is_ok());
-        constexpr PieceCoordinates pc = piece_table(p, r);
+        constexpr PieceCoordinates pc = piece_table<p, r>();
 
         set(x, y);
         set(x + pc[0].x, y + pc[0].y);
@@ -351,30 +379,6 @@ struct Board {
     //     }
     //     return output;
     // }
-
-    static constexpr int height_target(const int h) {
-        #pragma unroll Y.size()
-        for (const auto i : Y)
-            if (h < i)
-                return i;
-        return Board<>::H;
-    }
-
-    template <typename Fn>
-    static constexpr auto route(const int h, Fn&& fn) {
-        assert(is_ok_h(h));
-
-        switch (h) {
-            case Y[0]: return fn.template operator()<Y[0]>();
-            case Y[1]: return fn.template operator()<Y[1]>();
-            case Y[2]: return fn.template operator()<Y[2]>();
-            case Y[3]: return fn.template operator()<Y[3]>();
-            default: return fn.template operator()<Board<>::H>();
-            // Somehow using the below is quite a lot slower?
-            // case Board<>::H: return fn.template operator()<Board<>::H>();
-            // default: std::unreachable();
-        }
-    }
 
     template <int H1>
     constexpr Board<H1> cast_height() const {

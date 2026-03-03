@@ -26,6 +26,8 @@ private:
     using CSB = Gen::SmearedBoard<BoardT, cSize>;
     using SSB = Gen::SmearedBoard<BoardT, sSize>;
 
+    CSB moves{};
+
     void generate(const BoardT& b, const int y) {
         static_assert(p.is_ok());
 
@@ -43,7 +45,7 @@ private:
         do {
             // Slow init
             if constexpr (BoardT::H > SPAWN_Y)
-                if (y > SPAWN_Y - p.h_spawn()) [[unlikely]] {
+                if (y > SPAWN_Y - p.h_spawn()) {
                     if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
                         return;
 
@@ -100,10 +102,8 @@ private:
                 ((remaining[rs] = (moves[rs] = search[rs] & candidates[rs]) != candidates[rs]), ...);
             }(std::make_index_sequence<cSize>{});
 
-            if (!remaining.any()) {
-                // done.set();
+            if (!remaining.any())
                 return;
-            }
         } while (false);
 
         // BFS
@@ -137,16 +137,14 @@ private:
                             search[r] |= temp;
                             unsearched[r] ^= temp;
                         }
-                    }
 
-                    // Harddrop
-                    {
                         remaining[rc] = (moves[rc] |= search[r] & candidates[rc]) != candidates[rc];
                         if (!remaining.any()) {
                             done.set();
                             return;
                         }
                     }
+
 
                     // Rotates
                     if constexpr (p != Piece::O) {
@@ -198,8 +196,6 @@ private:
     }
 
 public:
-    CSB moves{};
-
     MoveList(const BoardT& b, const int y) { generate(b, y); }
 
     constexpr int popcount() const {

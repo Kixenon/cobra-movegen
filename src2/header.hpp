@@ -128,12 +128,13 @@ struct Move {
 /*----------------------------------------------------------------------------*/
 // Functions
 
-constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
+template <Piece p, Rotation r>
+consteval PieceCoordinates piece_table() {
     assert(p.is_ok());
     assert(r.is_ok());
 
     using C = Coordinates;
-    constexpr auto make_piece = [](const Piece p) {
+    constexpr auto cells = []{
         switch (p) {
             case Piece::I: return PieceCoordinates{C(-1, 0), C( 1, 0), C( 2, 0)}; // ––––
             case Piece::O: return PieceCoordinates{C( 1, 0), C( 0, 1), C( 1, 1)}; // ::
@@ -144,9 +145,9 @@ constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
             case Piece::Z: return PieceCoordinates{C(-1, 1), C( 0, 1), C( 1, 0)}; // Z
             default: std::unreachable();
         }
-    };
+    }();
 
-    constexpr auto rotate = [](const Rotation r, const Coordinates c) {
+    constexpr auto rotate = [](const Coordinates c) {
         switch (r) {
             case Rotation::NORTH: return c;
             case Rotation::EAST:  return C(c.y, -c.x);
@@ -156,8 +157,7 @@ constexpr PieceCoordinates piece_table(const Piece p, const Rotation r) {
         }
     };
 
-    const auto cells = make_piece(p);
-    return PieceCoordinates{rotate(r, cells[0]), rotate(r, cells[1]), rotate(r, cells[2])};
+    return PieceCoordinates{rotate(cells[0]), rotate(cells[1]), rotate(cells[2])};
 }
 
 } // namespace Cobra2

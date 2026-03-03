@@ -18,7 +18,7 @@ template <Piece p, Rotation r>
 consteval bool in_bounds(const int x) {
     static_assert(p.is_ok());
     static_assert(r.is_ok());
-    constexpr PieceCoordinates pc = piece_table(p, r);
+    constexpr PieceCoordinates pc = piece_table<p, r>();
     return is_ok_x(x) && is_ok_x(pc[0].x + x) && is_ok_x(pc[1].x + x) && is_ok_x(pc[2].x + x);
 }
 
@@ -32,7 +32,7 @@ consteval bool group3(const Piece p) {
 
 template <Piece p>
 constexpr size_t search_size() {
-    if (p == Piece::O)
+    if constexpr (p == Piece::O)
         return 1;
     return 4; // I, L, J, S, Z, T
 }
@@ -82,7 +82,7 @@ constexpr auto usable_map(const BoardT& b) {
     SmearedBoard<BoardT, canonical_size<p>()> result;
 
     auto init = [&]<Rotation r>{
-        constexpr PieceCoordinates pc = piece_table(p, r);
+        constexpr PieceCoordinates pc = piece_table<p, r>();
         const BoardT temp = ~b;
         result[r] = temp;
 
@@ -119,7 +119,7 @@ enum Direction {
 constexpr size_t DIRECTION_NB = 2;
 
 template <Direction d>
-constexpr Rotation rotate(const Rotation r) {
+consteval Rotation rotate(const Rotation r) {
     switch (d) {
         case CW: return Rotation((r + 1) & 3);
         case CCW: return Rotation((r + 3) & 3);

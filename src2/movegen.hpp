@@ -2,10 +2,8 @@
 #define MOVEGEN_HPP
 
 #include "header.hpp"
-#include "board.hpp"
 #include "gen.hpp"
 
-#include <algorithm>
 #include <array>
 #include <bitset>
 #include <cassert>
@@ -16,42 +14,36 @@
 
 namespace Cobra2 {
 
-template <Piece p>
+template <Piece p, typename BoardT>
 class MoveList {
 private:
-    static constexpr auto cSize = Gen::canonical_size<p>();
-
     // Temporary
     static constexpr int SPAWN_X = 4;
     static constexpr int SPAWN_Y = 19;
-    static constexpr int T_CAST = p == Piece::I || p == Piece::T ? 3 : 2 - (p == Piece::O);
-    static constexpr int T_SPAWN = p == Piece::I ? 3 : 2 - (p == Piece::O);
 
-    template <typename BoardT>
+    static constexpr auto cSize = Gen::canonical_size<p>();
+    static constexpr auto sSize = Gen::search_size<p>();
+    using CSB = Gen::SmearedBoard<BoardT, cSize>;
+    using SSB = Gen::SmearedBoard<BoardT, sSize>;
+
     void generate(const BoardT& b, const int y) {
         static_assert(p.is_ok());
 
-        constexpr auto sSize = p == Piece::O ? 1 : Rotation::size;
-
-        using cSB = Gen::SmearedBoard<BoardT, cSize>;
-        using sSB = Gen::SmearedBoard<BoardT, sSize>;
-
-        const cSB usable = Gen::usable_map<BoardT, p>(b);
-        const cSB candidates = Gen::landable_map<cSB, p>(usable);
-        cSB moves{};
-        sSB search;
+        const CSB usable = Gen::usable_map<BoardT, p>(b);
+        const CSB candidates = Gen::landable_map<CSB, p>(usable);
+        SSB search;
 
         std::bitset<cSize> remaining;
         std::bitset<sSize> done = 0;
 
-        constexpr auto ceiling = BoardT::H - T_CAST;
+        constexpr auto ceiling = BoardT::H - p.h_gen();
         assert(y < ceiling);
 
         // 500 iq syntax
         do {
             // Slow init
             if constexpr (BoardT::H > SPAWN_Y)
-                if (y > SPAWN_Y - T_SPAWN) [[unlikely]] {
+                if (y > SPAWN_Y - p.h_spawn()) [[unlikely]] {
                     if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
                         return;
 
@@ -110,13 +102,13 @@ private:
 
             if (!remaining.any()) {
                 // done.set();
-                goto output;
+                return;
             }
         } while (false);
 
         // BFS
         {
-            sSB unsearched;
+            SSB unsearched;
             [&]<size_t... rs>(std::index_sequence<rs...>) {
                 ((unsearched[rs] = ~search[rs] & usable[Gen::canonical_r<p>(Rotation(rs))]), ...);
             }(std::make_index_sequence<sSize>{});
@@ -203,59 +195,17 @@ private:
                 }(std::make_index_sequence<sSize>{});
             }
         }
-
-        output:
-
-        [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((list[rs] = moves[rs].template cast_height<Board<>::H>()), ...);
-        }(std::make_index_sequence<cSize>{});
-    }
-
-    void generate(const Board<>& b) {
-        static constexpr int H1 = 6;
-        static constexpr int H2 = 12;
-        static constexpr int H3 = 18;
-        static constexpr int H4 = 24;
-
-        const int y = b.max_y();
-        const int target = [&]{
-            const int y1 = y + T_CAST;
-            if (y1 < H1)
-                return H1;
-            if (y1 < H2)
-                return H2;
-            if (y1 < H3)
-                return H3;
-            if (y1 < H4)
-                return H4;
-            return Board<>::H;
-        }();
-
-        auto helper = [&]<int H>(const Board<>& b) {
-            const auto small = b.template cast_height<H>();
-            return generate<Board<H>>(small, y);
-        };
-
-        switch (target) {
-            case H1: return helper.template operator()<H1>(b);
-            case H2: return helper.template operator()<H2>(b);
-            case H3: return helper.template operator()<H3>(b);
-            case H4: return helper.template operator()<H4>(b);
-            default: return generate<Board<>>(b, y);
-        }
     }
 
 public:
+    CSB moves{};
 
-    Gen::SmearedBoard<Board<>, cSize> list{};
-
-    constexpr MoveList() = default;
-    MoveList(const Board<>& b) { generate(b); }
+    MoveList(const BoardT& b, const int y) { generate(b, y); }
 
     constexpr int popcount() const {
         int result = 0;
         [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((result += list[rs].popcount()), ...);
+            ((result += moves[rs].popcount()), ...);
         }(std::make_index_sequence<cSize>{});
         return result;
     }
@@ -263,7 +213,7 @@ public:
     template <typename Fn>
     void for_each_move(Fn&& fn) const {
         [&]<size_t... rs>(std::index_sequence<rs...>) {
-            ((list[rs].for_each_set_bit([&](int x, int y) {
+            ((moves[rs].for_each_set_bit([&](int x, int y) {
                 fn.template operator()<Rotation(rs)>(x, y);
             })), ...);
         }(std::make_index_sequence<cSize>{});

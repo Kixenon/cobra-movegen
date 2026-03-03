@@ -38,6 +38,16 @@ struct Piece {
         return std::ranges::contains(all, *this);
     }
 
+    consteval int h_gen() const {
+        return value == I || value == T ? 3 : 2 - (value == O);
+    }
+    consteval int h_spawn() const {
+        return value == I ? 3 : 2 - (value == O);
+    }
+    consteval int h_place() const {
+        return 3 + (value == I);
+    }
+
     template <typename Fn>
     constexpr auto route(Fn&& fn) const {
         switch (value) {

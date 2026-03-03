@@ -31,6 +31,13 @@ consteval bool group3(const Piece p) {
 }
 
 template <Piece p>
+constexpr size_t search_size() {
+    if (p == Piece::O)
+        return 1;
+    return 4; // I, L, J, S, Z, T
+}
+
+template <Piece p>
 consteval size_t canonical_size() {
     if constexpr (p == Piece::O)
         return 1;
@@ -40,7 +47,7 @@ consteval size_t canonical_size() {
 }
 
 template <Piece p>
-consteval Rotation canonical_r(const Rotation r){
+consteval Rotation canonical_r(const Rotation r) {
     if constexpr (p == Piece::O)
         return Rotation::NORTH;
     if constexpr (group2(p))

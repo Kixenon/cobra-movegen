@@ -45,7 +45,7 @@ struct Piece {
         return value == I ? 3 : 2 - (value == O);
     }
     consteval int h_place() const {
-        return 3 + (value == I);
+        return 3 + (value == I) - (value == O);
     }
 
     template <typename Fn>

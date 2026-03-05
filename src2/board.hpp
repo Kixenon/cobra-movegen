@@ -103,8 +103,8 @@ struct Board : public BoardBase {
     };
 
     template <int x>
-    // static constexpr Bitboard one_mask() {
-    static consteval Bitboard one_mask() {
+    // static constexpr Bitboard col_mask() {
+    static consteval Bitboard col_mask() {
         Board b{};
         [&]<size_t... i>(std::index_sequence<i...>) {
             (b.set<x, i>(), ...);
@@ -260,12 +260,12 @@ struct Board : public BoardBase {
     }
 
     constexpr Board line_clears() const {
-        return Board{.data = data & ((data & ~one_mask<W - 1>()) + one_mask<0>()) & one_mask<W - 1>()};
+        return Board{.data = data & ((data & ~col_mask<W - 1>()) + col_mask<0>()) & col_mask<W - 1>()};
     }
 
     constexpr void clear_lines(Board lines) {
         assert(lines.any());
-        assert(!Board{.data = lines.data & ~one_mask<W - 1>()}.any());
+        assert(!Board{.data = lines.data & ~col_mask<W - 1>()}.any());
 
         lines.data >>= (W - 1);
         // lines.shifted<-(W - 1), 0>();

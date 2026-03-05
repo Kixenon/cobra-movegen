@@ -28,7 +28,7 @@ private:
 
     CSB moves{};
 
-    void generate(const BoardT& b, const int y) {
+    void generate(const BoardT& b, [[maybe_unused]] const int y) {
         static_assert(p.is_ok());
 
         const CSB usable = Gen::usable_map<BoardT, p>(b);
@@ -62,17 +62,12 @@ private:
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
                     BoardT surface = ~usable[rc];
-                    surface |= surface.template shifted<0, -1>();
-                    surface |= surface.template shifted<0, -2>();
-
-                    if constexpr (ceiling >= 4)
-                        surface |= surface.template shifted<0, -4>();
-                    if constexpr (ceiling >= 8)
-                        surface |= surface.template shifted<0, -8>();
-                    if constexpr (ceiling >= 16)
-                        surface |= surface.template shifted<0, -16>();
-                    // if constexpr (ceiling >= 32) // Shouldn't be needed since it will be routed to slow init
-                    //     surface |= surface.template shifted<0, -32>();
+                    [&]<size_t... i>(std::index_sequence<i...>) {
+                        ([&]<int shift>{
+                            if constexpr (ceiling >= shift)
+                                surface |= surface.template shifted<0, -shift>();
+                        }.template operator()<1 << i>(), ...);
+                    }(std::make_index_sequence<5>{}); // 1 - 16. 32 isn't needed since that will be routed to slow init
 
                     search[r] = ~surface;
                     search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc]; // Quick tucks
@@ -93,17 +88,17 @@ private:
                 }(std::make_index_sequence<cSize>{});
             }
 
-            if constexpr (Gen::group2(p)) {
-                search[Rotation::SOUTH] = search[Rotation::NORTH];
-                search[Rotation::WEST] = search[Rotation::EAST];
-            }
-
             [&]<size_t... rs>(std::index_sequence<rs...>) {
                 ((remaining[rs] = (moves[rs] = search[rs] & candidates[rs]) != candidates[rs]), ...);
             }(std::make_index_sequence<cSize>{});
 
             if (!remaining.any())
                 return;
+
+            if constexpr (Gen::group2(p)) {
+                search[Rotation::SOUTH] = search[Rotation::NORTH];
+                search[Rotation::WEST] = search[Rotation::EAST];
+            }
         } while (false);
 
         // BFS
@@ -144,7 +139,6 @@ private:
                             return;
                         }
                     }
-
 
                     // Rotates
                     if constexpr (p != Piece::O) {

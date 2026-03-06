@@ -27,15 +27,15 @@ struct Piece {
 
     constexpr Piece(Type v) : value(v) {}
 
+    constexpr bool is_ok() const {
+        return std::ranges::contains(all, *this);
+    }
+
     constexpr operator size_t() const {
         return static_cast<size_t>(value);
     }
     constexpr bool operator!() const {
         return value == NO_PIECE;
-    }
-
-    constexpr bool is_ok() const {
-        return std::ranges::contains(all, *this);
     }
 
     consteval int h_gen() const {
@@ -64,7 +64,7 @@ struct Piece {
 };
 
 struct Rotation {
-    enum Type {
+    enum Type : uint8_t {
         NORTH, EAST, SOUTH, WEST
     };
 
@@ -76,12 +76,23 @@ struct Rotation {
     constexpr Rotation(Type v) : value(v) {}
     explicit constexpr Rotation(size_t v) : value(static_cast<Type>(v)) {}
 
+    constexpr bool is_ok() const {
+        return std::ranges::contains(all, *this);
+    }
+
     constexpr operator size_t() const {
         return static_cast<size_t>(value);
     }
 
-    constexpr bool is_ok() const {
-        return std::ranges::contains(all, *this);
+    template <typename Fn>
+    constexpr auto route(Fn&& fn) const {
+        switch (value) {
+            case NORTH: return fn.template operator()<NORTH>();
+            case EAST:  return fn.template operator()<EAST >();
+            case SOUTH: return fn.template operator()<SOUTH>();
+            case WEST:  return fn.template operator()<WEST >();
+            default: std::unreachable();
+        }
     }
 };
 

@@ -2,6 +2,7 @@
 #define GEN_HPP
 
 #include "header.hpp"
+#include "ruleset.hpp"
 
 #include <array>
 #include <cassert>
@@ -12,7 +13,7 @@ namespace Cobra2 {
 
 namespace Gen {
 
-constexpr int SPAWN_COL = 4;
+constexpr int SPAWN_X = 4;
 
 template <Piece p, Rotation r>
 consteval bool in_bounds(const int x) {
@@ -194,6 +195,33 @@ constexpr std::array<OffsetsRot<6>, 2> kicks180 = {{
     }}
 }};
 #undef e
+
+template<typename RulesT, Piece p>
+requires Ruleset<RulesT>
+consteval size_t kick_index() {
+    static_assert(p.is_ok() && p != Piece::O);
+
+    if constexpr (p != Piece::I)
+        return 0;
+
+    switch(RulesT::KICKS) {
+        case Policy::KickRule::SRS: return 1;
+        case Policy::KickRule::SRS_PLUS: return 2;
+        default: std::unreachable();
+    }
+}
+
+template <Piece p>
+consteval size_t kick180_index() {
+    static_assert(p.is_ok() && p != Piece::O);
+    return p == Piece::I;
+}
+
+template<typename RulesT, Direction d, size_t N>
+requires Ruleset<RulesT>
+consteval size_t kick_size() {
+    return (RulesT::KICKS == Policy::KickRule::SRS && d == Gen::Direction::FLIP) ? 2 : N;
+}
 
 } // namespace Gen
 

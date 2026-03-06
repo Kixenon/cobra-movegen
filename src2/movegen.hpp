@@ -28,7 +28,6 @@ private:
 
     void generate(const BoardT& b, [[maybe_unused]] const int y) {
         static_assert(p.is_ok());
-        constexpr int SPAWN_X = 4;
         constexpr int SPAWN_Y = RulesT::SPAWN_Y;
         constexpr auto ceiling = BoardT::H - p.h_gen();
         assert(y < ceiling);
@@ -44,11 +43,11 @@ private:
             // Slow init
             if constexpr (BoardT::H > SPAWN_Y)
                 if (y > SPAWN_Y - p.h_spawn()) {
-                    if (!usable[Rotation::NORTH].template get<SPAWN_X, SPAWN_Y>())
+                    if (!usable[Rotation::NORTH].template get<Gen::SPAWN_X, SPAWN_Y>())
                         return;
 
                     search = {};
-                    search[Rotation::NORTH].template set<SPAWN_X, SPAWN_Y>();
+                    search[Rotation::NORTH].template set<Gen::SPAWN_X, SPAWN_Y>();
 
                     remaining.set();
                     done.set();
@@ -143,23 +142,14 @@ private:
 
                     // Rotates
                     if constexpr (p != Piece::O) {
-                        constexpr size_t kickIndex = []{ // Might need cleaner method in the future
-                            if constexpr (p != Piece::I)
-                                return 0;
+                        constexpr size_t kickIndex = Gen::kick_index<RulesT, p>();
+                        constexpr size_t kick180Index = Gen::kick180_index<p>();
 
-                            switch(RulesT::KICKS) {
-                                case Policy::KickRule::SRS: return 1;
-                                case Policy::KickRule::SRS_PLUS: return 2;
-                                default: std::unreachable();
-                            }
-                        }();
-                        constexpr size_t kick180Index = (p == Piece::I) ? 1 : 0;
-
-                        auto process_rotation = [&]<Gen::Direction d, const auto& kickTable>() {
+                        auto rotate = [&]<Gen::Direction d, const auto& kickTable>{
                             constexpr Rotation r1 = Gen::rotate<d>(r);
                             constexpr Rotation r1c = Gen::canonical_r<p>(r1);
                             constexpr auto off = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(r1);
-                            constexpr size_t N = (RulesT::KICKS == Policy::KickRule::SRS && d == Gen::Direction::FLIP) ? 2 : kickTable[r].size();
+                            constexpr size_t kickSize = Gen::kick_size<RulesT, d, kickTable[r].size()>();
 
                             BoardT temp = search[r];
                             BoardT result{};
@@ -171,7 +161,7 @@ private:
                                     if constexpr (i != sizeof...(i) - 1)
                                         temp &= ~(usable[r1c].template shifted<-kick.x, -kick.y>());
                                 }(), ...);
-                            }(std::make_index_sequence<N>{});
+                            }(std::make_index_sequence<kickSize>{});
 
                             result &= unsearched[r1];
                             if (result.any()) {
@@ -183,10 +173,10 @@ private:
                                 remaining[r1c] = (moves[r1c] |= result & candidates[r1c]) != candidates[r1c];
                             }
                         };
-                        process_rotation.template operator()<Gen::Direction::CW, Gen::kicks[kickIndex][Gen::Direction::CW]>();
-                        process_rotation.template operator()<Gen::Direction::CCW, Gen::kicks[kickIndex][Gen::Direction::CCW]>();
+                        rotate.template operator()<Gen::Direction::CW, Gen::kicks[kickIndex][Gen::Direction::CW]>();
+                        rotate.template operator()<Gen::Direction::CCW, Gen::kicks[kickIndex][Gen::Direction::CCW]>();
                         if constexpr (RulesT::ENABLE_180)
-                            process_rotation.template operator()<Gen::Direction::FLIP, Gen::kicks180[kick180Index]>();
+                            rotate.template operator()<Gen::Direction::FLIP, Gen::kicks180[kick180Index]>();
 
                         if (!remaining.any()) {
                             done.set();

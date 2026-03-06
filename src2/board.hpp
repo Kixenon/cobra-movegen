@@ -54,7 +54,7 @@ struct BoardBase {
     }
 };
 
-template <int Height = ROW_NB>
+template <int Height = BoardBase::H>
 struct Board : public BoardBase {
     static constexpr int H = Height;
     static constexpr int Tn = ((H - 1) / Tlines) + 1;

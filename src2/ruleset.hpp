@@ -1,6 +1,8 @@
 #ifndef RULESET_HPP
 #define RULESET_HPP
 
+#include "header.hpp"
+
 #include <concepts>
 #include <cstdint>
 
@@ -28,7 +30,7 @@ concept Ruleset = requires {
     { R::KICKS } -> std::convertible_to<Policy::KickRule>;
     { R::SPAWN_Y } -> std::convertible_to<int>;
 } && (R::KICKS != Policy::KickRule::UNSPECIFIED)
-  && (R::SPAWN_Y >= 0);
+  && (R::SPAWN_Y >= 0 && R::SPAWN_Y < ROW_NB);
 
 } // namespace Cobra2
 

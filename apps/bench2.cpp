@@ -1,6 +1,7 @@
 #include "../src2/board.hpp"
 #include "../src2/header.hpp"
 #include "../src2/movegen.hpp"
+#include "../src2/ruleset.hpp"
 
 #include <array>
 #include <cassert>
@@ -15,6 +16,12 @@
 
 using namespace Cobra2;
 
+struct Rules : RulesetBase {
+    static constexpr bool ENABLE_180 = false;
+    static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS;
+    static constexpr int SPAWN_Y = 19;
+};
+
 namespace {
 
 uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
@@ -26,8 +33,8 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
             const int h = b.max_y();
             const int h1 = BoardBase::height_target(h + p.h_gen());
             return BoardBase::route(h1, [&]<int H>{
-                Board<H> b1 = b.template cast_height<H>();
-                return static_cast<uint64_t>(MoveList<p, Board<H>>(b1, h).popcount());
+                auto b1 = b.template cast_height<H>();
+                return static_cast<uint64_t>(MoveList<Rules, p, Board<H>>(b1, h).popcount());
             });
         });
 
@@ -38,14 +45,16 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
         const int h2 = BoardBase::height_target(h + p.h_place());
         assert(h1 <= h2);
 
+        // Experimentally, routing h1 + h1/h2 > h2 > h1 + h2
         BoardBase::route(h1, [&]<int H1>{
             assert(Board<H1>::is_ok_y_local(h));
             auto b1 = b.template cast_height<H1>();
-            MoveList<p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y) {
+            MoveList<Rules, p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y) {
                 // Difficult to abstract this into a single routing lambda without hurting performance
                 // The compiler becomes blind to this easy-to-predict branch, and forcing inline breaks more things
+                // if (H1 == h2) { // <- This is consistently slower (~2% nps) even though H1 IS h1
                 if (h1 == h2) {
-                    Board<H1> b2 = b1;
+                    auto b2 = b1;
                     b2.template do_move<p, r>(x, y);
                     Board nextBoard = b2.template cast_height<BoardBase::H>();
                     nodes += perft(nextBoard, next + 1, depth - 1);
@@ -53,7 +62,7 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
                     assert(h1 < h2);
                     BoardBase::route(h2, [&]<int H2>{
                         assert(Board<H2>::is_ok_y_local(h));
-                        Board<H2> b2 = b1.template cast_height<H2>();
+                        auto b2 = b1.template cast_height<H2>();
                         b2.template do_move<p, r>(x, y);
                         Board nextBoard = b2.template cast_height<BoardBase::H>();
                         nodes += perft(nextBoard, next + 1, depth - 1);

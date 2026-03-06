@@ -116,7 +116,6 @@ constexpr SB landable_map(const SB& sb) {
 enum Direction {
     CW, CCW, FLIP
 };
-constexpr size_t DIRECTION_NB = 2;
 
 template <Direction d>
 consteval Rotation rotate(const Rotation r) {
@@ -135,7 +134,7 @@ template <size_t N>
 using OffsetsRot = std::array<Offsets<N>, Rotation::size>;
 
 #define e Coordinates
-constexpr std::array<std::array<OffsetsRot<5>, DIRECTION_NB>, 3> kicks = {{
+constexpr std::array<std::array<OffsetsRot<5>, 2>, 3> kicks = {{
     {{ // LJSZT
         {{ // CW
             {e( 0,  0), e(-1,  0), e(-1,  1), e( 0, -2), e(-1, -2)},

@@ -2,25 +2,23 @@
 #define MOVEGEN_HPP
 
 #include "header.hpp"
+#include "board.hpp"
 #include "gen.hpp"
+#include "ruleset.hpp"
 
 #include <array>
 #include <bitset>
 #include <cassert>
+#include <concepts>
 #include <cstddef>
-#include <tuple>
-#include <type_traits>
 #include <utility>
 
 namespace Cobra2 {
 
-template <Piece p, typename BoardT>
+template <typename RulesT, Piece p, typename BoardT>
+requires Ruleset<RulesT> && std::derived_from<BoardT, BoardBase>
 class MoveList {
 private:
-    // Temporary
-    static constexpr int SPAWN_X = 4;
-    static constexpr int SPAWN_Y = 19;
-
     static constexpr auto cSize = Gen::canonical_size<p>();
     static constexpr auto sSize = Gen::search_size<p>();
     using CSB = Gen::SmearedBoard<BoardT, cSize>;
@@ -30,17 +28,17 @@ private:
 
     void generate(const BoardT& b, [[maybe_unused]] const int y) {
         static_assert(p.is_ok());
+        constexpr int SPAWN_X = 4;
+        constexpr int SPAWN_Y = RulesT::SPAWN_Y;
+        constexpr auto ceiling = BoardT::H - p.h_gen();
+        assert(y < ceiling);
 
         const CSB usable = Gen::usable_map<BoardT, p>(b);
         const CSB candidates = Gen::landable_map<CSB, p>(usable);
         SSB search;
 
         std::bitset<cSize> remaining;
-        std::bitset<sSize> done = 0;
-
-        constexpr auto ceiling = BoardT::H - p.h_gen();
-        assert(y < ceiling);
-
+        std::bitset<sSize> done;
         // 500 iq syntax
         do {
             // Slow init
@@ -53,6 +51,9 @@ private:
                     search[Rotation::NORTH].template set<SPAWN_X, SPAWN_Y>();
 
                     remaining.set();
+                    done.set();
+                    done.reset(Rotation::NORTH);
+
                     break;
                 }
 
@@ -142,12 +143,23 @@ private:
 
                     // Rotates
                     if constexpr (p != Piece::O) {
-                        constexpr size_t kickIndex = (p == Piece::I) ? 1 : 0;
+                        constexpr size_t kickIndex = []{ // Might need cleaner method in the future
+                            if constexpr (p != Piece::I)
+                                return 0;
+
+                            switch(RulesT::KICKS) {
+                                case Policy::KickRule::SRS: return 1;
+                                case Policy::KickRule::SRS_PLUS: return 2;
+                                default: std::unreachable();
+                            }
+                        }();
+                        constexpr size_t kick180Index = (p == Piece::I) ? 1 : 0;
 
                         auto process_rotation = [&]<Gen::Direction d, const auto& kickTable>() {
                             constexpr Rotation r1 = Gen::rotate<d>(r);
                             constexpr Rotation r1c = Gen::canonical_r<p>(r1);
                             constexpr auto off = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(r1);
+                            constexpr size_t N = (RulesT::KICKS == Policy::KickRule::SRS && d == Gen::Direction::FLIP) ? 2 : kickTable[r].size();
 
                             BoardT temp = search[r];
                             BoardT result{};
@@ -159,7 +171,7 @@ private:
                                     if constexpr (i != sizeof...(i) - 1)
                                         temp &= ~(usable[r1c].template shifted<-kick.x, -kick.y>());
                                 }(), ...);
-                            }(std::make_index_sequence<std::tuple_size_v<std::remove_cvref_t<decltype(kickTable[r])>>>{});
+                            }(std::make_index_sequence<N>{});
 
                             result &= unsearched[r1];
                             if (result.any()) {
@@ -173,6 +185,8 @@ private:
                         };
                         process_rotation.template operator()<Gen::Direction::CW, Gen::kicks[kickIndex][Gen::Direction::CW]>();
                         process_rotation.template operator()<Gen::Direction::CCW, Gen::kicks[kickIndex][Gen::Direction::CCW]>();
+                        if constexpr (RulesT::ENABLE_180)
+                            process_rotation.template operator()<Gen::Direction::FLIP, Gen::kicks180[kick180Index]>();
 
                         if (!remaining.any()) {
                             done.set();

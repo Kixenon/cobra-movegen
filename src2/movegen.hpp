@@ -2,21 +2,19 @@
 #define MOVEGEN_HPP
 
 #include "header.hpp"
-#include "board.hpp"
 #include "gen.hpp"
 #include "ruleset.hpp"
 
 #include <array>
 #include <bitset>
 #include <cassert>
-#include <concepts>
 #include <cstddef>
 #include <utility>
 
 namespace Cobra2 {
 
 template <typename RulesT, Piece p, typename BoardT>
-requires Ruleset<RulesT> && std::derived_from<BoardT, BoardBase>
+requires Ruleset<RulesT>
 class MoveList {
 private:
     static constexpr auto cSize = Gen::canonical_size<p>();

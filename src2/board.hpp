@@ -14,58 +14,57 @@
 
 namespace Cobra2 {
 
-struct BoardBase {
+namespace BoardBase {
+
+constexpr std::array Y = {6, 12, 18, 24};
+constexpr int H = ROW_NB;
+
+constexpr bool is_ok_h(const int h) {
+    return std::ranges::contains(Y, h) || h == H;
+}
+
+constexpr int height_target(const int h) {
+    #pragma unroll
+    for (const auto i : Y)
+        if (h < i)
+            return i;
+    return H;
+}
+
+template <typename Fn>
+constexpr auto route(const int h, Fn&& fn) {
+    assert(is_ok_h(h));
+
+    switch (h) {
+        case Y[0]: return fn.template operator()<Y[0]>();
+        case Y[1]: return fn.template operator()<Y[1]>();
+        case Y[2]: return fn.template operator()<Y[2]>();
+        case Y[3]: return fn.template operator()<Y[3]>();
+        default: return fn.template operator()<H>();
+        // Somehow using the below is quite a lot slower?
+        // case H: return fn.template operator()<H>();
+        // default: std::unreachable();
+    }
+}
+
+} // namespace BoardBase
+
+template <int Height = BoardBase::H>
+struct Board {
+    static constexpr int H = Height;
     static constexpr int W = COL_NB;
+    static_assert(BoardBase::is_ok_h(H));
 
     using T = uint64_t;
     static constexpr int Tbits = std::numeric_limits<T>::digits;
     static constexpr int Tlines = Tbits / W;
     static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
-
-    static constexpr std::array Y = {6, 12, 18, 24};
-    static constexpr int H = ROW_NB;
-
-    static constexpr bool is_ok_h(const int h) {
-        return std::ranges::contains(Y, h) || h == H;
-    }
-
-    static constexpr int height_target(const int h) {
-        #pragma unroll Y.size()
-        for (const auto i : Y)
-            if (h < i)
-                return i;
-        return H;
-    }
-
-    template <typename Fn>
-    static constexpr auto route(const int h, Fn&& fn) {
-        assert(is_ok_h(h));
-
-        switch (h) {
-            case Y[0]: return fn.template operator()<Y[0]>();
-            case Y[1]: return fn.template operator()<Y[1]>();
-            case Y[2]: return fn.template operator()<Y[2]>();
-            case Y[3]: return fn.template operator()<Y[3]>();
-            default: return fn.template operator()<H>();
-            // Somehow using the below is quite a lot slower?
-            // case H: return fn.template operator()<H>();
-            // default: std::unreachable();
-        }
-    }
-};
-
-template <int Height = BoardBase::H>
-struct Board : public BoardBase {
-    static constexpr int H = Height;
     static constexpr int Tn = ((H - 1) / Tlines) + 1;
 
     using Bitboard [[gnu::vector_size(Tn * sizeof(T))]] = T;
     // static_assert(sizeof(Bitboard) == Tn * sizeof(T));
 
     Bitboard data;
-
-    static constexpr int height_target(const int h) = delete;
-    static constexpr auto route(const int h) = delete;
 
     static constexpr bool is_ok_y_local(const int y) {
         return y >= 0 && y < H;
@@ -349,7 +348,7 @@ struct Board : public BoardBase {
     //     header += "\n";
 
     //     output += header;
-    //     auto output_row = [&]<int y>() {
+    //     auto output_row = [&]<int y>{
     //         [&]<size_t... x>(std::index_sequence<x...>) {
     //             ((output += (get<x, y>()? " | #" : " |  ")), ...);
     //         }(std::make_index_sequence<W>());
@@ -382,7 +381,7 @@ struct Board : public BoardBase {
 
     template <int H1>
     constexpr Board<H1> cast_height() const {
-        static_assert(is_ok_h(H1));
+        static_assert(BoardBase::is_ok_h(H1));
 
         Board<H1> result{};
         [&]<size_t... i>(std::index_sequence<i...>) {
@@ -392,7 +391,7 @@ struct Board : public BoardBase {
     }
 
     constexpr int max_y() const {
-        #pragma unroll Tn
+        #pragma unroll
         for (int lane = Tn - 1; lane >= 0; --lane) {
             const T bits = data[static_cast<size_t>(lane)];
             if (!bits)

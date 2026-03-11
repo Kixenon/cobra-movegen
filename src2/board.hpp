@@ -321,7 +321,7 @@ struct Board {
     }
 
     template <Piece p, Rotation r>
-    void do_move(const int x, const int y) {
+    auto do_move(const int x, const int y) {
         static_assert(p.is_ok() && r.is_ok());
         constexpr PieceCoordinates pc = piece_table<p, r>();
 
@@ -333,6 +333,8 @@ struct Board {
         const auto clears = line_clears();
         if (clears.any())
             clear_lines(clears);
+
+        return clears;
     }
 
     // std::string to_string() const {

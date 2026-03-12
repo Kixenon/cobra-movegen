@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <utility>
 
 namespace Cobra2 {
@@ -337,49 +338,37 @@ struct Board {
         return clears;
     }
 
-    // std::string to_string() const {
-    //     constexpr int lines = std::min(20, H);
-    //     constexpr size_t lenR = (W * 8) + 6;
-    //     constexpr size_t lenH = (W * 4) + 4;
+    std::string to_string() const {
+        constexpr int lines = std::min(20, H);
+        constexpr size_t lenR = (W * 8) + 6;
+        constexpr size_t lenH = (W * 4) + 4;
+        constexpr size_t lenT = (lines * lenR) + lenH;
 
-    //     std::string output;
-    //     output.reserve((lines * lenR) + lenH);
+        std::string output;
+        output.reserve(lenT);
 
-    //     std::string header = "\n +";
-    //     for (int i = 0; i < W; ++i) header += "---+";
-    //     header += "\n";
+        std::string header;
+        header.reserve(lenH);
+        header = "\n +";
+        for (int i = 0; i < W; ++i)
+            header += "---+";
+        header += "\n";
 
-    //     output += header;
-    //     auto output_row = [&]<int y>{
-    //         [&]<size_t... x>(std::index_sequence<x...>) {
-    //             ((output += (get<x, y>()? " | #" : " |  ")), ...);
-    //         }(std::make_index_sequence<W>());
-    //         output += " |";
-    //         output += header;
-    //     };
-    //     [&]<size_t... y>(std::index_sequence<y...>) {
-    //         (output_row.template operator()<lines - y - 1>(), ...);
-    //     }(std::make_index_sequence<lines>());
-    //     return output;
-    // }
+        output += header;
+        auto output_row = [&]<int y>{
+            [&]<size_t... x>(std::index_sequence<x...>) {
+                ((output += (get<x, y>() ? " | #" : " |  ")), ...);
+            }(std::make_index_sequence<W>());
+            output += " |";
+            output += header;
+        };
+        [&]<size_t... y>(std::index_sequence<y...>) {
+            (output_row.template operator()<lines - y - 1>(), ...);
+        }(std::make_index_sequence<lines>());
 
-    // std::string to_string(const Move& move) const {
-    //     std::string output = to_string();
-    //     constexpr int lines = std::min(20, H);
-    //     constexpr size_t lenR = (W * 8) + 6;
-    //     constexpr size_t lenH = (W * 4) + 4;
-
-    //     const PieceCoordinates pc = piece_table(move.piece, move.rotation);
-    //     for (size_t i = 0; i < 4; ++i) {
-    //         const int inverseY = lines - (i == 0 ? move.y : pc[i - 1].y + move.y) - 1;
-    //         if (inverseY < 0)
-    //             continue;
-    //         const size_t idx = static_cast<size_t>((inverseY * lenR) + ((i == 0 ? move.x : pc[i - 1].x + move.x) * 4) + lenH + 3);
-    //         if (output[idx] == ' ')
-    //             output[idx] = '.';
-    //     }
-    //     return output;
-    // }
+        assert(output.size() == lenT);
+        return output;
+    }
 
     template <int H1>
     constexpr Board<H1> cast_height() const {

@@ -27,7 +27,7 @@ using Inputs = std::vector<Input>;
 
 template <typename RulesT, Piece p>
 requires Ruleset<RulesT>
-Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse) {
+Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, const int force = 0) {
     static_assert(p.is_ok());
     constexpr int SPAWN_Y = RulesT::SPAWN_Y;
     constexpr auto cSize = Gen::canonical_size<p>();
@@ -35,7 +35,15 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse) {
 
     const Gen::SmearedBoard<Board<>, cSize> usable = Gen::usable_map<Board<>, p>(b);
 
-    if (!usable[Rotation::NORTH].template get<Gen::SPAWN_X, SPAWN_Y>())
+    assert(force >= 0);
+    const int threshold = std::min(SPAWN_Y + force + 1, Board<>::H);
+    const int spawn = [&] {
+        int s = SPAWN_Y;
+        for (; s < threshold && !usable[Rotation::NORTH].get(Gen::SPAWN_X, s); ++s);
+        return s;
+    }();
+
+    if (spawn == threshold)
         return {};
 
     struct PathNode {
@@ -59,8 +67,8 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse) {
     std::vector<PathNode> internal;
     internal.reserve(256);
 
-    leaf.push_back({Rotation::NORTH, Gen::SPAWN_X, SPAWN_Y, GhostMove::root()});
-    searched[Rotation::NORTH].template set<Gen::SPAWN_X, SPAWN_Y>();
+    leaf.push_back({Rotation::NORTH, Gen::SPAWN_X, spawn, GhostMove::root()});
+    searched[Rotation::NORTH].set(Gen::SPAWN_X, spawn);
 
     while (!leaf.empty()) {
         const GhostMove m = leaf.front();

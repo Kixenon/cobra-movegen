@@ -24,7 +24,7 @@ private:
 
     CSB moves{};
 
-    void generate(const BoardT& b, [[maybe_unused]] const int y) {
+    void generate(const BoardT& b, [[maybe_unused]] const int y, [[maybe_unused]] const int force) {
         static_assert(p.is_ok());
         constexpr int SPAWN_Y = RulesT::SPAWN_Y;
         constexpr auto ceiling = BoardT::H - p.h_gen();
@@ -41,11 +41,21 @@ private:
             // Slow init
             if constexpr (BoardT::H > SPAWN_Y)
                 if (y > SPAWN_Y - p.h_spawn()) {
-                    if (!usable[Rotation::NORTH].template get<Gen::SPAWN_X, SPAWN_Y>())
+                    // There's probably a better method where you use clz(usable.data & col_mask<Gen::SPAWN_X>())
+                    assert(force >= 0);
+                    const int threshold = std::min(SPAWN_Y + force + 1, BoardT::H);
+                    const int spawn = [&]{
+                        int s = SPAWN_Y;
+                        for (; s < threshold && !usable[Rotation::NORTH].get(Gen::SPAWN_X, s); ++s);
+                        return s;
+                    }();
+
+                    if (spawn == threshold)
                         return;
 
+                    assert(spawn < BoardT::H);
                     search = {};
-                    search[Rotation::NORTH].template set<Gen::SPAWN_X, SPAWN_Y>();
+                    search[Rotation::NORTH].set(Gen::SPAWN_X, spawn);
 
                     remaining.set();
                     done.set();
@@ -192,7 +202,7 @@ private:
     }
 
 public:
-    MoveList(const BoardT& b, const int y) { generate(b, y); }
+    MoveList(const BoardT& b, const int y, const int force = 0) { generate(b, y, force); }
 
     constexpr int popcount() const {
         int result = 0;

@@ -22,7 +22,7 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
     Bitboard remaining = 0;
     Bitboard toSearch[COL_NB][searchSize] = {};
     Bitboard searched[COL_NB][searchSize];
-    Bitboard moveSet[COL_NB][canonicalSize] = {};
+    Bitboard moveSet[COL_NB][checkSpin ? 0 : canonicalSize] = {};
     Bitboard spinSet[COL_NB][ROTATION_NB][checkSpin ? SPIN_NB : 0] = {};
 
     auto remaining_index = [](int x, Rotation r) { return bb(x * ROTATION_NB + r); };
@@ -130,9 +130,7 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
 
         // Harddrops
         {
-            if constexpr (checkSpin)
-                moveSet[x][r] |= toSearch[x][r] & ((cm[x][r] << 1) | 1);
-            else {
+            if constexpr (!checkSpin) {
                 const Rotation r1 = Gen::canonical_r<p>(r);
                 Bitboard m = toSearch[x][r] & ((cm[x][r1] << 1) | 1) & ~searched[x][r] & ~moveSet[x][r1];
                 if (m) {
@@ -159,9 +157,9 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
                 if (m) {
                     toSearch[x1][r] |= m;
                     remaining |= remaining_index(x1, r);
-                    if constexpr (checkSpin)
-                        spinSet[x1][r][NO_SPIN] |= m;
                 }
+                if constexpr (checkSpin)
+                    spinSet[x1][r][NO_SPIN] |= toSearch[x][r];
             };
             if (x > 0)
                 shift(x - 1);
@@ -233,11 +231,10 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
     if constexpr (checkSpin)
         for (int x = 0; x < COL_NB; ++x)
             for (const Rotation r : allRotations) {
-                if (!moveSet[x][r])
-                    continue;
+                const auto ms = ~cm[x][r] & ((cm[x][r] << 1) | 1);
 
                 for (const auto s : {NO_SPIN, MINI, FULL}) {
-                    Bitboard current = moveSet[x][r] & spinSet[x][r][s];
+                    Bitboard current = ms & spinSet[x][r][s];
                     while (current) {
                         *moves++ = Move(s == NO_SPIN ? T : TSPIN, r, x, ctz(current), s == FULL);
                         current &= current - 1;

@@ -74,23 +74,23 @@ struct Board {
     template <int x, int y>
     constexpr void set() {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << ((y % Tlines) * W + x);
+        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
     }
 
     void set(const int x, const int y) {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << ((y % Tlines) * W + x);
+        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
     }
 
     template <int x, int y>
     constexpr bool get() const {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << ((y % Tlines) * W + x));
+        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
     }
 
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << ((y % Tlines) * W + x));
+        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
     }
 
     // static constexpr Bitboard all() {

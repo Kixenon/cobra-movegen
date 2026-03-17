@@ -1,39 +1,66 @@
-SRCS = $(wildcard src/*.cpp) apps/bench.cpp
-
-TARGET = cobra-movegen
 CXX = clang++
 
-FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++20
+FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++23
 
-debug = no
-optimise = yes
+debug ?= no
+optimise ?= yes
 
-ifneq ($(debug),yes)
+ifeq ($(debug),no)
 	FLAGS += -DNDEBUG
-# else
-# 	FLAGS += -g
 endif
 
-ifneq ($(optimise),no)
-	FLAGS += -O3 -funroll-loops -march=native -mtune=native
-	ifneq ($(debug),yes)
-		FLAGS += -flto
-	endif
+ifeq ($(optimise),yes)
+	FLAGS += -O3 -funroll-loops -march=native -mtune=native -flto -pipe
 endif
+
+BUILD_DIR = bin
+OBJ_DIR = $(BUILD_DIR)/obj
+
+LIB_SRCS = $(wildcard src/*.cpp)
+APP_SRCS = $(wildcard apps/*.cpp)
+APP_NAMES = $(basename $(notdir $(APP_SRCS)))
+APP_BINS = $(patsubst %, $(BUILD_DIR)/%, $(APP_NAMES))
+LIB_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(LIB_SRCS))
+APP_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(APP_SRCS))
+DEPS = $(LIB_OBJS:.o=.d) $(APP_OBJS:.o=.d)
+
+.PHONY: all clean help $(APP_NAMES)
+
+all: help
+
+$(APP_NAMES): %: $(BUILD_DIR)/%
+
+$(BUILD_DIR)/%: clean $(OBJ_DIR)/apps/%.o $(LIB_OBJS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(FLAGS) $(filter-out clean,$^) -o $@
+	@echo "Built $@"
+
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(FLAGS) -MMD -MP -c $< -o $@
+
+-include $(DEPS)
+
+clean:
+	@echo "Cleaning all build artifacts..."
+	rm -rf $(BUILD_DIR)
 
 help:
 	@echo ""
-	@echo "To compile Cobra Movegen, type:"
-	@echo "make -j [target] [config]"
+	@echo "Cobra Movegen"
+	@echo "Usage: make [app]"
+	@echo "Example: make bench"
 	@echo ""
-	@echo "Supported targets:"
-	@echo "help                   shows this message"
-	@echo "build                  build binary"
+	@echo "Available apps:"
+	@$(foreach app,$(APP_NAMES),echo "  $(app)";)
 	@echo ""
-	@echo "Supported configs for build ({} represents default):"
-	@echo "debug    =  yes  / {no}"
-	@echo "optimise = {yes} /  no "
+	@echo "Other targets:"
+	@echo "  help              Show this message (default)"
+	@echo "  clean             Remove all build artifacts"
 	@echo ""
-
-build:
-	$(CXX) -o $(TARGET) $(FLAGS) $(SRCS)
+	@echo "Configuration (pass as arguments):"
+	@echo "  debug=yes         Enable debug build (default: no)"
+	@echo "  optimise=no       Disable optimisations (default: yes)"
+	@echo ""
+	@echo "[run make clean before rebuilding with different configurations]"
+	@echo ""

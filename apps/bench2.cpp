@@ -3,6 +3,7 @@
 #include "../src2/movegen.hpp"
 #include "../src2/ruleset.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <chrono>
@@ -16,13 +17,14 @@
 
 using namespace Cobra2;
 
-struct Rules : RulesetBase {
-    static constexpr bool ENABLE_180 = false;
-    static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS;
-    static constexpr int SPAWN_Y = 19;
-};
-
 namespace {
+
+struct Rules : RulesetBase {
+    static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS;
+    static constexpr Policy::SpinRule SPINS = Policy::SpinRule::NONE;
+    static constexpr int SPAWN_Y = 19;
+    static constexpr bool ENABLE_180 = false;
+};
 
 uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
     assert(next->is_ok());
@@ -49,7 +51,7 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
         BoardBase::route(h1, [&]<int H1>{
             assert(Board<H1>::is_ok_y_local(h));
             auto b1 = b.template cast_height<H1>();
-            MoveList<Rules, p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y) {
+            MoveList<Rules, p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y, [[maybe_unused]] const SpinType s) {
                 // Difficult to abstract this into a single routing lambda without hurting performance
                 // The compiler becomes blind to this easy-to-predict branch, and forcing inline breaks more things
                 // if (H1 == h2) { // <- This is consistently slower (~2% nps) even though H1 IS h1
@@ -113,6 +115,7 @@ std::pair<uint64_t, int64_t> benchmark(std::string_view pieces) {
 }
 
 void test() {
+    // (SRS, no tspin, spawn y = 19, no 180)
     constexpr std::array data = {
         std::pair{"IIIIII", 33325345U},
         std::pair{"IOLJSZT", 2647076135U},
@@ -124,11 +127,25 @@ void test() {
         std::pair{"OLJSZTI", 2689379684U},
     };
 
-    int64_t totalTime = 0;
+    // (SRS+, tspin, spawn y = 5, 180)
+    // constexpr std::array data = {
+    //     std::pair{"IIIIII", 12955903U},
+    //     std::pair{"IOLJSZT", 788332817U},
+    //     std::pair{"TIOLJSZ", 908982457U},
+    //     std::pair{"ZTIOLJS", 884231722U},
+    //     std::pair{"SZTIOLJ", 822485640U},
+    //     std::pair{"JSZTIOL", 735332135U},
+    //     std::pair{"LJSZTIO", 648149538U},
+    //     std::pair{"OLJSZTI", 721407228U},
+    // };
+
+    uint64_t totalNodes = 0;
+    uint64_t totalTime = 0;
     const auto start = std::chrono::high_resolution_clock::now();
     for (const auto& [pieces, expected] : data) {
         const auto [nodes, time] = benchmark(pieces);
-        totalTime += time;
+        totalNodes += nodes;
+        totalTime += static_cast<uint64_t>(time);
         std::cout << "Testing piece: " << pieces
                   << ", expected: " << expected
                   << ", got: " << nodes
@@ -136,7 +153,8 @@ void test() {
     }
     const auto end = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "\nTotal test time: " << totalTime << "ms | " << dt << "ms" << std::endl;
+    std::cout << "\nTotal test time: " << totalTime << "ms | " << dt << "ms\n";
+    std::cout << "Total nodes per second: " << (totalNodes * 1000) / std::max(totalTime, 1ULL) << std::endl;
 }
 
 } // namespace

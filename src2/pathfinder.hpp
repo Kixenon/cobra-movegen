@@ -7,6 +7,7 @@
 #include "ruleset.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -29,9 +30,14 @@ template <typename RulesT, Piece p>
 requires Ruleset<RulesT>
 Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, const int force = 0) {
     static_assert(p.is_ok());
+    constexpr bool checkTspin = (p == Piece::T) && (RulesT::SPINS == Policy::SpinRule::TSPIN);
+    constexpr auto spinMul = checkTspin ? SpinType::size : 1;
     constexpr int SPAWN_Y = RulesT::SPAWN_Y;
     constexpr auto cSize = Gen::canonical_size<p>();
     constexpr auto sSize = Gen::search_size<p>();
+
+    if constexpr (!checkTspin)
+        assert(target.spin == SpinType::NONE);
 
     const Gen::SmearedBoard<Board<>, cSize> usable = Gen::usable_map<Board<>, p>(b);
 
@@ -52,38 +58,48 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
     };
     struct GhostMove {
         Rotation r;
+        SpinType s;
         int8_t x;
         int8_t y;
         uint16_t prev;
 
-        GhostMove(Rotation r, int x, int y, uint16_t i) :
-            r(r), x(static_cast<int8_t>(x)), y(static_cast<int8_t>(y)), prev(i) {}
+        GhostMove(Rotation r, int x, int y, uint16_t i, SpinType s) :
+            r(r), s(s), x(static_cast<int8_t>(x)), y(static_cast<int8_t>(y)), prev(i) {}
 
         static constexpr uint16_t root() { return std::numeric_limits<uint16_t>::max(); }
     };
 
-    Gen::SmearedBoard<Board<>, sSize> searched{};
+    std::array<Gen::SmearedBoard<Board<>, sSize>, spinMul> searched{};
     std::deque<GhostMove> leaf;
     std::vector<PathNode> internal;
     internal.reserve(256);
 
-    leaf.push_back({Rotation::NORTH, Gen::SPAWN_X, spawn, GhostMove::root()});
-    searched[Rotation::NORTH].set(Gen::SPAWN_X, spawn);
+    const auto spin_index = [&](const SpinType s) {
+        if constexpr (checkTspin)
+            return s;
+        else {
+            (void)s;
+            return static_cast<size_t>(0);
+        }
+    };
+
+    leaf.push_back({Rotation::NORTH, Gen::SPAWN_X, spawn, GhostMove::root(), SpinType::NONE});
+    searched[spin_index(SpinType::NONE)][Rotation::NORTH].set(Gen::SPAWN_X, spawn);
 
     while (!leaf.empty()) {
-        const GhostMove m = leaf.front();
+        GhostMove m = leaf.front();
         leaf.pop_front();
 
         auto update = [&]<Input input>(const GhostMove& l) {
             assert(is_ok_x(l.x));
             assert(is_ok_y(l.y));
 
-            auto& entry = searched[l.r];
+            auto& entry = searched[spin_index(l.s)][l.r];
 
             if (!entry.get(l.x, l.y)) {
                 entry.set(l.x, l.y);
                 internal.push_back({input, l.prev});
-                leaf.push_back({l.r, l.x, l.y, static_cast<uint16_t>(internal.size() - 1)});
+                leaf.push_back({l.r, l.x, l.y, static_cast<uint16_t>(internal.size() - 1), l.s});
             }
         };
 
@@ -93,7 +109,11 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
             while (is_ok_y(l.y - 1) && usable[Gen::canonical_r<p>(l.r)].get(l.x, l.y - 1)) // No clean sonic drop api yet
                 l.y -= 1;
 
-            if (Gen::canonical_r<p>(l.r) == target.rotation && l.x == target.x && l.y == target.y) {
+            if constexpr (checkTspin)
+                if (l.y != m.y)
+                    l.s = SpinType::NONE;
+
+            if (Gen::canonical_r<p>(l.r) == target.rotation && l.x == target.x && l.y == target.y && l.s == target.spin) {
                 Inputs result;
                 for (uint16_t i = l.prev; i != GhostMove::root(); i = internal[i].prev)
                     result.push_back(internal[i].input);
@@ -102,6 +122,9 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
                 return result;
             }
         }
+
+        if constexpr (checkTspin)
+            m.s = SpinType::NONE;
 
         // Rotation
         if constexpr (p != Piece::O) {
@@ -126,6 +149,10 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
                     GhostMove l = m;
                     l.r = r1;
 
+                    const auto obstructed = [&](const int x, const int y) {
+                        return !is_ok_x(x) || !is_ok_y(y) || b.get(x, y);
+                    };
+
                     [&]<size_t... i>(std::index_sequence<i...>) {
                         ([&]{
                             constexpr auto kick = kickTable[r][i] + off;
@@ -135,10 +162,23 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
                             if (!is_ok_x(l.x) || !is_ok_y(l.y) || !(usable[r1c].get(l.x, l.y)))
                                 return true;
 
+                            if constexpr (checkTspin) {
+                                const std::array corner = {
+                                    obstructed(l.x - 1, l.y + 1),
+                                    obstructed(l.x + 1, l.y + 1),
+                                    obstructed(l.x + 1, l.y - 1),
+                                    obstructed(l.x - 1, l.y - 1)
+                                };
+                                if (corner[0] + corner[1] + corner[2] + corner[3] >= 3)
+                                    l.s = (i >= 4 || (corner[r1] && corner[Gen::rotate<Gen::Direction::CW>(r1)])) ? SpinType::FULL : SpinType::MINI;
+                                else
+                                    l.s = SpinType::NONE;
+                            }
+
                             update.template operator()<input>(l);
                             return false;
                         }() && ...);
-                    }( std::make_index_sequence<kickSize>{} );
+                    }(std::make_index_sequence<kickSize>());
                 };
                 rotate.template operator()<Gen::Direction::CW, Gen::kicks[kickIndex][Gen::Direction::CW]>();
                 rotate.template operator()<Gen::Direction::CCW, Gen::kicks[kickIndex][Gen::Direction::CCW]>();

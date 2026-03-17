@@ -98,7 +98,7 @@ constexpr auto usable_map(const BoardT& b) {
     };
     [&]<size_t... rs>(std::index_sequence<rs...>) {
         ((init.template operator()<Rotation(rs)>()), ...);
-    }(std::make_index_sequence<result.size()>{});
+    }(std::make_index_sequence<result.size()>());
 
     return result;
 }
@@ -109,7 +109,7 @@ constexpr SB landable_map(const SB& sb) {
 
     [&]<size_t... rs>(std::index_sequence<rs...>) {
         ((result[rs] = sb[rs] & ~sb[rs].template shifted<0, 1>()), ...);
-    }(std::make_index_sequence<result.size()>{});
+    }(std::make_index_sequence<result.size()>());
 
     return result;
 }

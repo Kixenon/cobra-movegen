@@ -28,7 +28,7 @@ struct Piece {
     constexpr Piece(Type v) : value(v) {}
 
     constexpr bool is_ok() const {
-        return std::ranges::contains(all, *this);
+        return std::ranges::contains(all, value);
     }
 
     constexpr operator size_t() const {
@@ -77,7 +77,7 @@ struct Rotation {
     explicit constexpr Rotation(size_t v) : value(static_cast<Type>(v)) {}
 
     constexpr bool is_ok() const {
-        return std::ranges::contains(all, *this);
+        return std::ranges::contains(all, value);
     }
 
     constexpr operator size_t() const {
@@ -93,6 +93,28 @@ struct Rotation {
             case WEST:  return fn.template operator()<WEST >();
             default: std::unreachable();
         }
+    }
+};
+
+struct SpinType {
+    enum Type : uint8_t {
+        NONE, MINI, FULL
+    };
+
+    static constexpr std::array all = {NONE, MINI, FULL};
+    static constexpr size_t size = all.size();
+
+    Type value;
+
+    constexpr SpinType(Type v) : value(v) {}
+    explicit constexpr SpinType(size_t v) : value(static_cast<Type>(v)) {}
+
+    constexpr bool is_ok() const {
+        return std::ranges::contains(all, value);
+    }
+
+    constexpr operator size_t() const {
+        return static_cast<size_t>(value);
     }
 };
 
@@ -129,10 +151,10 @@ struct Move {
     Piece piece;
     Rotation rotation;
     int x, y;
-    // SpinType spin;
+    SpinType spin;
 
     static constexpr Move none() {
-        return Move{.piece = Piece::NO_PIECE, .rotation = Rotation::NORTH, .x = 0, .y = 0};
+        return Move{.piece = Piece::NO_PIECE, .rotation = Rotation::NORTH, .x = 0, .y = 0, .spin = SpinType::NONE};
     }
 };
 

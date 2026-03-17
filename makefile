@@ -17,11 +17,12 @@ BUILD_DIR = bin
 OBJ_DIR = $(BUILD_DIR)/obj
 
 LIB_SRCS = $(wildcard src/*.cpp)
-LIB_OBJS = $(patsubst src/%.cpp, $(OBJ_DIR)/src/%.o, $(LIB_SRCS))
-
 APP_SRCS = $(wildcard apps/*.cpp)
 APP_NAMES = $(basename $(notdir $(APP_SRCS)))
 APP_BINS = $(patsubst %, $(BUILD_DIR)/%, $(APP_NAMES))
+LIB_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(LIB_SRCS))
+APP_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(APP_SRCS))
+DEPS = $(LIB_OBJS:.o=.d) $(APP_OBJS:.o=.d)
 
 .PHONY: all clean help $(APP_NAMES)
 
@@ -34,21 +35,11 @@ $(BUILD_DIR)/%: clean $(OBJ_DIR)/apps/%.o $(LIB_OBJS)
 	$(CXX) $(FLAGS) $(filter-out clean,$^) -o $@
 	@echo "Built $@"
 
-$(BUILD_DIR)/bench2: clean $(OBJ_DIR)/apps/bench2.o
-	@mkdir -p $(dir $@)
-	$(CXX) $(FLAGS) $(filter-out clean,$^) -o $@
-	@echo "Built $@"
-
-$(OBJ_DIR)/src/%.o: src/%.cpp
+$(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(FLAGS) -MMD -MP -c $< -o $@
 
-$(OBJ_DIR)/apps/%.o: apps/%.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(FLAGS) -MMD -MP -c $< -o $@
-
--include $(patsubst src/%.cpp, $(OBJ_DIR)/src/%.d, $(LIB_SRCS))
--include $(patsubst apps/%.cpp, $(OBJ_DIR)/apps/%.d, $(APP_SRCS))
+-include $(DEPS)
 
 clean:
 	@echo "Cleaning all build artifacts..."

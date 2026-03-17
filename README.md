@@ -1,42 +1,51 @@
 <div align="center">
     <h2>Cobra Movegen</h2>
 
-    A high-performance move generation implementation for tetromino stackers.
+    A high-performance bitboard-based move generator for tetromino stackers.
 </div>
 
 ## Overview
 
-This project is derived from [Cobra](https://www.youtube.com/@cobra-tetris).
+This project was originally derived from [Cobra](https://www.youtube.com/@cobra-tetris), but has since gone through major changes, with some reference from [fast-reachability](https://github.com/ImpleLee/fast-reachability/tree/avx512-perft).
 
-Currently it runs perft from an empty position. (This may be modified as needed in apps/bench.cpp)
+Currently, it runs perft from an empty position, though this can be modified as needed in apps/bench.cpp.
 
-## Features:
+## Features
+
 - SRS/SRS+ rotation system
 - 180 spins
-- Tspin detections (Full and mini)
-- Full movegen (Non-infinite SDF)
+- T-spin detection (full and mini)
+- Configurable piece spawn (rising spawns, clutch clear)
+- Full movegen (non-infinite SDF)
 - Canonical, deduplicated moves
-- Optimized for single-thread performance and speed
+- Move input pathfinding with finesse
+- Header-only library
 
-## Building
+Cobra Movegen achieves high single-thread performance through data-level parallelism (register-friendly wide operations), compile-time template specialization, and aggressive search-space pruning.
 
-- Requires c++20
+Benchmarked on an M2 MacBook Pro (results may vary):
 ```bash
-make help # Shows build information
-make -j build
+./bin/bench IOLJSZT
+Depth: 7 Nodes: 2647076135 Time: 5946ms NPS: 445111171
 ```
 
 ## Usage
 
-If you wish to use this as a submodule, simply include `src`.
+- Requires C++23
+```bash
+make help # Shows build information
+make bench && ./bin/bench <queue (e.g. "IOLJSZT") or "test">
+```
 
-Remember to define `ACTIVE_RULES`!
+If you wish to use this as a submodule, simply include headers in `src`.
+
+Remember to define the rules! More information can be found in `src/ruleset.hpp`
 ```cpp
-extern const Rules ACTIVE_RULES = {
-    .enable180 = true,
-    .enableTspin = true,
-    .srsPlus = true,
-    .spawnRow = 21
+struct Rules : RulesetBase {
+    static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS;
+    static constexpr Policy::SpinRule SPINS = Policy::SpinRule::NONE;
+    static constexpr int SPAWN_Y = 19;
+    static constexpr bool ENABLE_180 = false;
 };
 ```
 
@@ -48,7 +57,7 @@ extern const Rules ACTIVE_RULES = {
 ## Credits
 
 - **Kixenon** - Developer and maintainer
-- Special thanks to **Opyu**
+- Special thanks to **ImpleLee** and **Opyu**
 
 ## License
 

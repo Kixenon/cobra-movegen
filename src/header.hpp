@@ -22,9 +22,11 @@ struct Piece {
     };
 
     static constexpr std::array all = {I, O, T, L, J, S, Z};
+    static constexpr size_t size = all.size();
 
     Type value;
 
+    constexpr Piece() = default;
     constexpr Piece(Type v) : value(v) {}
 
     constexpr bool is_ok() const {
@@ -73,6 +75,7 @@ struct Rotation {
 
     Type value;
 
+    constexpr Rotation() = default;
     constexpr Rotation(Type v) : value(v) {}
     explicit constexpr Rotation(size_t v) : value(static_cast<Type>(v)) {}
 
@@ -106,6 +109,7 @@ struct SpinType {
 
     Type value;
 
+    constexpr SpinType() = default;
     constexpr SpinType(Type v) : value(v) {}
     explicit constexpr SpinType(size_t v) : value(static_cast<Type>(v)) {}
 

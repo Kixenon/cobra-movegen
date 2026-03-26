@@ -263,13 +263,11 @@ struct Board {
         return Board{.data = data & ((data & ~col_mask<W - 1>()) + col_mask<0>()) & col_mask<W - 1>()};
     }
 
-    constexpr void clear_lines(Board lines) {
+    constexpr void clear_lines(const Board& lines) {
         assert(lines.any());
         assert(!Board{.data = lines.data & ~col_mask<W - 1>()}.any());
 
-        lines.data >>= (W - 1);
-        // lines.shifted<-(W - 1), 0>();
-        int prefix[Tn]{};
+        std::array<int, Tn> prefix{};
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((prefix[i + 1] = prefix[i] + std::popcount(lines.data[i])), ...);
         }(std::make_index_sequence<Tn - 1>());
@@ -285,8 +283,9 @@ struct Board {
                 [&]<size_t... r>(std::index_sequence<r...>) {
                     (([&]{
                         constexpr int src = r * W;
+                        constexpr int src2 = src + (W - 1);
                         constexpr T rowMask = (static_cast<T>(1) << W) - 1;
-                        if (((ll >> src) & 1) == 0) {
+                        if (((ll >> src2) & 1) == 0) {
                             packed |= ((ld >> src) & rowMask) << dest;
                             dest += W;
                         }

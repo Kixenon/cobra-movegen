@@ -388,8 +388,8 @@ struct Board {
                 continue;
 
             const int idx = (Tbits - 1) - std::countl_zero(bits);
-            const int y = (lane * Tlines) + (idx / W);
-            assert(y < H);
+            const int y = (lane * Tlines) + (idx / W) + 1;
+            assert(y <= H);
             return y;
         }
         return 0;

@@ -41,13 +41,13 @@ struct Piece {
     }
 
     consteval int h_gen() const {
-        return value == I || value == T ? 3 : 2 - (value == O);
+        return value == I || value == T ? 2 : value != O;
     }
     consteval int h_spawn() const {
-        return value == I ? 3 : 2 - (value == O);
+        return value == I ? 2 : value != O;
     }
     consteval int h_place() const {
-        return 3 + (value == I) - (value == O);
+        return 2 + (value == I) - (value == O);
     }
 
     template <typename Fn>

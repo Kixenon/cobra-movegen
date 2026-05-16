@@ -2,10 +2,17 @@
 #include "../src/header.hpp"
 #include "../src/movegen.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 using namespace Cobra;
 
@@ -36,24 +43,88 @@ uint64_t perft(Board& b, const Piece* next, unsigned depth) {
     return nodes;
 }
 
-int main() {
-    // Depth should be <= the queue size, but that is left to the user
-    constexpr unsigned depth = 7;
-    const Piece queue[] = {I, O, L, J, S, Z, T};
-    Board board;
-    board.clear();
+Piece char_to_piece(const char c) {
+    switch (c) {
+        case 'I': return I;
+        case 'O': return O;
+        case 'L': return L;
+        case 'J': return J;
+        case 'S': return S;
+        case 'Z': return Z;
+        case 'T': return T;
+        default: return NO_PIECE;
+    }
+}
 
+std::vector<Piece> parse_queue(std::string_view s) {
+    std::vector<Piece> q;
+    q.reserve(s.size());
+    for (const auto& c : s) {
+        const Piece p = char_to_piece(c);
+        if (!is_ok(p)) {
+            std::cerr << "Invalid piece in queue: " << c << std::endl;
+            std::exit(1);
+        }
+        q.push_back(p);
+    }
+    return q;
+}
+
+std::pair<uint64_t, int64_t> benchmark(std::string_view pieces) {
+    Board b{};
+    const std::vector<Piece> queue = parse_queue(pieces);
     const auto start = std::chrono::high_resolution_clock::now();
-
-    const uint64_t nodes = perft(board, queue, depth);
-
+    const uint64_t result = perft(b, queue.data(), static_cast<unsigned>(queue.size()));
     const auto end = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    return {result, dt};
+}
 
-    std::cout << "Depth: " << depth
-              << " Nodes: " << nodes
-              << " Time: " << dt << "ms"
-              << " NPS: " << (nodes * 1000) / static_cast<uint64_t>(dt + 1) << std::endl;
+void test() {
+    constexpr std::array data = {
+        std::pair{"IIIIII", 33325345U},
+        std::pair{"IOLJSZT", 2647076135U},
+        std::pair{"TIOLJSZ", 2785677550U},
+        std::pair{"ZTIOLJS", 2741273038U},
+        std::pair{"SZTIOLJ", 2740055656U},
+        std::pair{"JSZTIOL", 2801460686U},
+        std::pair{"LJSZTIO", 2852978763U},
+        std::pair{"OLJSZTI", 2689379684U},
+    };
+
+    uint64_t totalNodes = 0;
+    uint64_t totalTime = 0;
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (const auto& [pieces, expected] : data) {
+        const auto [nodes, time] = benchmark(pieces);
+        totalNodes += nodes;
+        totalTime += static_cast<uint64_t>(time);
+        std::cout << "Testing piece: " << pieces
+                  << ", expected: " << expected
+                  << ", got: " << nodes
+                  << ", time: " << time << "ms" << std::endl;
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "\nTotal test time: " << totalTime << "ms | " << dt << "ms\n";
+    std::cout << "Total nodes per second: " << (totalNodes * 1000) / std::max(totalTime, 1ULL) << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " <queue or \"test\">" << std::endl;
+        return 1;
+    }
+
+    if (std::strcmp(argv[1], "test") == 0)
+        test();
+    else {
+        const auto [nodes, time] = benchmark(argv[1]);
+        std::cout << "Depth: " << std::strlen(argv[1])
+                  << " Nodes: " << nodes
+                  << " Time: " << time << "ms"
+                  << " NPS: " << (nodes * 1000) / static_cast<uint64_t>(time + 1) << std::endl;
+    }
 
     return 0;
 }

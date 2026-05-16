@@ -16,7 +16,7 @@ endif
 BUILD_DIR = bin
 OBJ_DIR = $(BUILD_DIR)/obj
 
-LIB_SRCS = $(wildcard src/*.cpp)
+LIB_SRCS = $(filter-out src/movegen.cpp, $(wildcard src/*.cpp))
 APP_SRCS = $(wildcard apps/*.cpp)
 APP_NAMES = $(basename $(notdir $(APP_SRCS)))
 APP_BINS = $(patsubst %, $(BUILD_DIR)/%, $(APP_NAMES))

@@ -1,6 +1,7 @@
 #include "../src/board.hpp"
 #include "../src/header.hpp"
 #include "../src/movegen.hpp"
+#include "../src/ruleset.hpp"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,15 @@
 
 using namespace Cobra;
 
+namespace {
+
+struct Rules : RulesetBase {
+    static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS;
+    static constexpr Policy::SpinRule SPINS = Policy::SpinRule::NONE;
+    static constexpr int SPAWN_Y = 19;
+    static constexpr bool ENABLE_180 = false;
+};
+
 // From https://github.com/facebook/folly/blob/7a3f5e4e81bc83a07036e2d1d99d6a5bf5932a48/folly/lang/Hint-inl.h#L107
 // Apache License 2.0
 template <class Tp>
@@ -28,13 +38,13 @@ uint64_t perft(Board& b, const Piece* next, unsigned depth) {
     assert(depth > 0);
 
     if (depth == 1) {
-        const MoveList moves(b, *next);
+        const MoveList<Rules> moves(b, *next);
         do_not_optimize(moves);
         return static_cast<uint64_t>(moves.size());
     }
 
     uint64_t nodes = 0;
-    for (const Move& move : MoveList(b, *next)) {
+    for (const Move& move : MoveList<Rules>(b, *next)) {
         Board nextBoard = b;
         nextBoard.do_move(move);
         nodes += perft(nextBoard, next + 1, depth - 1);
@@ -109,6 +119,8 @@ void test() {
     std::cout << "\nTotal test time: " << totalTime << "ms | " << dt << "ms\n";
     std::cout << "Total nodes per second: " << (totalNodes * 1000) / std::max(totalTime, 1ULL) << std::endl;
 }
+
+} // namespace
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {

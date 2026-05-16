@@ -6,7 +6,6 @@
 #include "header.hpp"
 #include "ruleset.hpp"
 
-
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

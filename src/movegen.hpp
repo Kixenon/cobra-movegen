@@ -15,7 +15,6 @@ namespace Cobra {
 
 constexpr int MAX_MOVES = 256;
 
-
 template <Ruleset R>
 class MoveList {
 private:

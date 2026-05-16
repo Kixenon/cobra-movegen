@@ -91,6 +91,7 @@ std::pair<uint64_t, int64_t> benchmark(std::string_view pieces) {
 }
 
 void test() {
+    // (SRS, no tspin, spawn y = 19, no 180)
     constexpr std::array data = {
         std::pair{"IIIIII", 33325345U},
         std::pair{"IOLJSZT", 2647076135U},
@@ -101,6 +102,18 @@ void test() {
         std::pair{"LJSZTIO", 2852978763U},
         std::pair{"OLJSZTI", 2689379684U},
     };
+
+    // (SRS+, tspin, spawn y = 5, 180)
+    // constexpr std::array data = {
+    //     std::pair{"IIIIII", 12955903U},
+    //     std::pair{"IOLJSZT", 788332817U},
+    //     std::pair{"TIOLJSZ", 908982457U},
+    //     std::pair{"ZTIOLJS", 884231722U},
+    //     std::pair{"SZTIOLJ", 822485640U},
+    //     std::pair{"JSZTIOL", 735332135U},
+    //     std::pair{"LJSZTIO", 648149538U},
+    //     std::pair{"OLJSZTI", 721407228U},
+    // };
 
     uint64_t totalNodes = 0;
     uint64_t totalTime = 0;

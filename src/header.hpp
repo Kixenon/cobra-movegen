@@ -36,6 +36,7 @@ struct Piece {
     constexpr operator size_t() const {
         return static_cast<size_t>(value);
     }
+
     constexpr bool operator!() const {
         return value == NO_PIECE;
     }
@@ -43,9 +44,11 @@ struct Piece {
     consteval int h_gen() const {
         return value == I || value == T ? 2 : value != O;
     }
+
     consteval int h_spawn() const {
         return value == I ? 2 : value != O;
     }
+
     consteval int h_place() const {
         return 2 + (value == I) - (value == O);
     }
@@ -128,6 +131,7 @@ struct SpinType {
 constexpr bool is_ok_x(const int x) {
     return x >= 0 && x < COL_NB;
 }
+
 constexpr bool is_ok_y(const int y) {
     return y >= 0 && y < ROW_NB;
 }
@@ -144,6 +148,7 @@ struct Coordinates {
     constexpr Coordinates operator+(const Coordinates& c) const {
         return Coordinates(x + c.x, y + c.y);
     }
+
     constexpr Coordinates operator-(const Coordinates& c) const {
         return Coordinates(x - c.x, y - c.y);
     }

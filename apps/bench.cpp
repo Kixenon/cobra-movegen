@@ -25,6 +25,12 @@ struct Rules : RulesetBase {
     static constexpr int SPAWN_Y = 19;
     static constexpr bool ENABLE_180 = false;
 };
+// struct Rules : RulesetBase {
+//     static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS_PLUS;
+//     static constexpr Policy::SpinRule SPINS = Policy::SpinRule::TSPIN;
+//     static constexpr int SPAWN_Y = 5;
+//     static constexpr bool ENABLE_180 = true;
+// };
 
 uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
     assert(next->is_ok());
@@ -107,8 +113,9 @@ std::vector<Piece> parse_queue(std::string_view s) {
 std::pair<uint64_t, int64_t> benchmark(std::string_view pieces) {
     Board b{};
     const std::vector<Piece> queue = parse_queue(pieces);
+    const unsigned depth = static_cast<unsigned>(queue.size());
     const auto start = std::chrono::high_resolution_clock::now();
-    const uint64_t result = perft(b, queue.data(), static_cast<unsigned>(queue.size()));
+    const uint64_t result = perft(b, queue.data(), depth);
     const auto end = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     return {result, dt};
@@ -117,26 +124,26 @@ std::pair<uint64_t, int64_t> benchmark(std::string_view pieces) {
 void test() {
     // (SRS, no tspin, spawn y = 19, no 180)
     constexpr std::array data = {
-        std::pair{"IIIIII", 33325345U},
-        std::pair{"IOLJSZT", 2647076135U},
-        std::pair{"TIOLJSZ", 2785677550U},
-        std::pair{"ZTIOLJS", 2741273038U},
-        std::pair{"SZTIOLJ", 2740055656U},
-        std::pair{"JSZTIOL", 2801460686U},
-        std::pair{"LJSZTIO", 2852978763U},
-        std::pair{"OLJSZTI", 2689379684U},
+        std::pair{"IIIIII",  33325345ULL},
+        std::pair{"IOLJSZT", 2647076135ULL},
+        std::pair{"TIOLJSZ", 2785677550ULL},
+        std::pair{"ZTIOLJS", 2741273038ULL},
+        std::pair{"SZTIOLJ", 2740055656ULL},
+        std::pair{"JSZTIOL", 2801460686ULL},
+        std::pair{"LJSZTIO", 2852978763ULL},
+        std::pair{"OLJSZTI", 2689379684ULL},
     };
 
     // (SRS+, tspin, spawn y = 5, 180)
     // constexpr std::array data = {
-    //     std::pair{"IIIIII", 12955903U},
-    //     std::pair{"IOLJSZT", 788332817U},
-    //     std::pair{"TIOLJSZ", 908982457U},
-    //     std::pair{"ZTIOLJS", 884231722U},
-    //     std::pair{"SZTIOLJ", 822485640U},
-    //     std::pair{"JSZTIOL", 735332135U},
-    //     std::pair{"LJSZTIO", 648149538U},
-    //     std::pair{"OLJSZTI", 721407228U},
+    //     std::pair{"IIIIII", 12955903ULL},
+    //     std::pair{"IOLJSZT", 788332817ULL},
+    //     std::pair{"TIOLJSZ", 908982457ULL},
+    //     std::pair{"ZTIOLJS", 884231722ULL},
+    //     std::pair{"SZTIOLJ", 822485640ULL},
+    //     std::pair{"JSZTIOL", 735332135ULL},
+    //     std::pair{"LJSZTIO", 648149538ULL},
+    //     std::pair{"OLJSZTI", 721407228ULL},
     // };
 
     uint64_t totalNodes = 0;

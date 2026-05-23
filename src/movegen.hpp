@@ -44,7 +44,6 @@ private:
             // Slow init
             if constexpr (BoardT::H > SPAWN_Y)
                 if (y > SPAWN_Y - p.h_spawn()) {
-                    // There's probably a better method where you use clz(usable.data & col_mask<Gen::SPAWN_X>())
                     assert(force >= 0);
                     const int threshold = std::min(SPAWN_Y + force + 1, BoardT::H);
                     const int spawn = [&]{
@@ -73,17 +72,13 @@ private:
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
 
-                    // Column-major surface: for each column, highest blocked cell
-                    // determines the surface. fill = (1 << bit_width(blocked)) - 1
-                    // fills rows 0..top; empty column → bit_width=0 → fill=0.
-                    [&]<size_t... c>(std::index_sequence<c...>) {
+                    [&]<size_t... xs>(std::index_sequence<xs...>) {
                         (([&]{
-                            constexpr int col = static_cast<int>(c);
                             using CT = typename BoardT::T;
-                            const CT blocked = static_cast<CT>(BoardT::Tmask & ~usable[rc].data[col]);
-                            const int top = std::bit_width(blocked); // 0 if empty, else highest_bit+1
-                            const CT fill = static_cast<CT>((static_cast<CT>(1) << top) - static_cast<CT>(1));
-                            search[r].data[col] = static_cast<CT>(BoardT::Tmask ^ fill);
+                            const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
+                            const int inv = BoardT::H - std::bit_width(blocked);
+                            const CT fill = BoardT::Tall >> inv;
+                            search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
                         }()), ...);
                     }(std::make_index_sequence<BoardT::W>());
 
@@ -274,14 +269,13 @@ private:
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
 
-                    [&]<size_t... c>(std::index_sequence<c...>) {
+                    [&]<size_t... xs>(std::index_sequence<xs...>) {
                         (([&]{
-                            constexpr int col = static_cast<int>(c);
                             using CT = typename BoardT::T;
-                            const CT blocked = static_cast<CT>(BoardT::Tmask & ~usable[rc].data[col]);
-                            const int top = std::bit_width(blocked);
-                            const CT fill = static_cast<CT>((static_cast<CT>(1) << top) - static_cast<CT>(1));
-                            search[r].data[col] = static_cast<CT>(BoardT::Tmask ^ fill);
+                            const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
+                            const int inv = BoardT::H - std::bit_width(blocked);
+                            const CT fill = BoardT::Tall >> inv;
+                            search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
                         }()), ...);
                     }(std::make_index_sequence<BoardT::W>());
 

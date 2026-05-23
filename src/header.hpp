@@ -14,7 +14,7 @@ namespace Cobra {
 // Types
 
 constexpr int COL_NB = 10;
-constexpr int ROW_NB = 48;
+constexpr int ROW_NB = 40;
 
 struct Piece {
     enum Type {

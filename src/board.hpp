@@ -17,7 +17,7 @@ namespace Cobra {
 
 namespace BoardBase {
 
-constexpr std::array Y = {6, 12, 18, 24};
+constexpr std::array Y = {16, 32};
 constexpr int H = ROW_NB;
 
 constexpr bool is_ok_h(const int h) {
@@ -39,8 +39,6 @@ constexpr auto route(const int h, Fn&& fn) {
     switch (h) {
         case Y[0]: return fn.template operator()<Y[0]>();
         case Y[1]: return fn.template operator()<Y[1]>();
-        case Y[2]: return fn.template operator()<Y[2]>();
-        case Y[3]: return fn.template operator()<Y[3]>();
         default: return fn.template operator()<H>();
         // Somehow using the below is quite a lot slower?
         // case H: return fn.template operator()<H>();
@@ -56,20 +54,8 @@ struct Board {
     static constexpr int W = COL_NB;
     static_assert(BoardBase::is_ok_h(H));
 
-    using T = std::conditional_t<
-        H <= 8, uint8_t,
-        std::conditional_t<
-            H <= 16, uint16_t,
-            std::conditional_t<
-                H <= 32, uint32_t,
-                uint64_t
-            >
-        >
-    >;
-
-    static constexpr T Tmask = (H >= static_cast<int>(sizeof(T) * 8))
-        ? static_cast<T>(-1)
-        : (static_cast<T>(1) << H) - static_cast<T>(1);
+    using T = std::conditional_t<H <= 16, uint16_t, std::conditional_t<H <= 32, uint32_t, uint64_t>>;
+    static constexpr T Tall = static_cast<T>((1ULL << ROW_NB) - 1);
 
     T data[W];
 
@@ -90,7 +76,7 @@ struct Board {
     static consteval Board all() {
         Board b{};
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((b.data[i] = Tmask), ...);
+            ((b.data[i] = Tall), ...);
         }(std::make_index_sequence<W>());
         return b;
     }
@@ -98,7 +84,7 @@ struct Board {
     template <int x>
     static consteval Board col_mask() {
         Board b{};
-        b.data[x] = Tmask;
+        b.data[x] = Tall;
         return b;
     }
 
@@ -107,11 +93,11 @@ struct Board {
         Board b{};
         if constexpr (dx > 0) {
             [&]<size_t... i>(std::index_sequence<i...>) {
-                ((b.data[i + dx] = Tmask), ...);
+                ((b.data[i + dx] = Tall), ...);
             }(std::make_index_sequence<W - dx>());
         } else if constexpr (dx < 0) {
             [&]<size_t... i>(std::index_sequence<i...>) {
-                ((b.data[i] = Tmask), ...);
+                ((b.data[i] = Tall), ...);
             }(std::make_index_sequence<W + dx>());
         } else
             b = all();
@@ -157,7 +143,7 @@ struct Board {
         }
         if constexpr (dy != 0 && dx == 0)
             [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] &= Tmask), ...);
+                ((data[i] &= Tall), ...);
             }(std::make_index_sequence<W>());
 
         return *this;
@@ -191,7 +177,7 @@ struct Board {
     constexpr Board operator~() const {
         Board result{};
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = Tmask & ~data[i]), ...);
+            ((result.data[i] = Tall & ~data[i]), ...);
         }(std::make_index_sequence<W>());
         return result;
     }

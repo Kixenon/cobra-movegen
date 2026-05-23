@@ -90,9 +90,9 @@ constexpr auto usable_map(const BoardT& b) {
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
                 if constexpr (pc[i].y > 0) // Don't kick against ceiling
-                    result[r] &= (~b.template shifted<0, -pc[i].y>()).template shift<-pc[i].x, 0>();
+                    result[r] &= (~b.template shift<0, -pc[i].y>()).template shift<-pc[i].x, 0>();
                 else
-                    result[r] &= temp.template shifted<-pc[i].x, -pc[i].y>();
+                    result[r] &= temp.template shift<-pc[i].x, -pc[i].y>();
             }()), ...);
         }(std::make_index_sequence<3>());
     };
@@ -108,7 +108,7 @@ constexpr SB landable_map(const SB& sb) {
     SB result{};
 
     [&]<size_t... rs>(std::index_sequence<rs...>) {
-        ((result[rs] = sb[rs] & ~sb[rs].template shifted<0, 1>()), ...);
+        ((result[rs] = sb[rs] & ~sb[rs].template shift<0, 1>()), ...);
     }(std::make_index_sequence<result.size()>());
 
     return result;

@@ -6,6 +6,7 @@
 #include "ruleset.hpp"
 
 #include <array>
+#include <bit>
 #include <bitset>
 #include <cassert>
 #include <cstddef>
@@ -29,8 +30,7 @@ private:
     void generate(const BoardT& b, [[maybe_unused]] const int y, [[maybe_unused]] const int force) {
         static_assert(p.is_ok());
         constexpr int SPAWN_Y = RulesT::SPAWN_Y;
-        constexpr auto ceiling = BoardT::H - p.h_gen();
-        assert(y < ceiling);
+        assert(y < BoardT::H - p.h_gen());
 
         const auto usable = Gen::usable_map<BoardT, p>(b);
         const auto candidates = Gen::landable_map<CSB, p>(usable);
@@ -72,15 +72,21 @@ private:
                 (([&]{
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
-                    BoardT surface = ~usable[rc];
-                    [&]<size_t... i>(std::index_sequence<i...>) {
-                        ([&]<int shift>{
-                            if constexpr (ceiling >= shift)
-                                surface |= surface.template shifted<0, -shift>();
-                        }.template operator()<1 << i>(), ...);
-                    }(std::make_index_sequence<5>()); // 1 - 16. 32 isn't needed since that will be routed to slow init
 
-                    search[r] = ~surface;
+                    // Column-major surface: for each column, highest blocked cell
+                    // determines the surface. fill = (1 << bit_width(blocked)) - 1
+                    // fills rows 0..top; empty column → bit_width=0 → fill=0.
+                    [&]<size_t... c>(std::index_sequence<c...>) {
+                        (([&]{
+                            constexpr int col = static_cast<int>(c);
+                            using CT = typename BoardT::T;
+                            const CT blocked = static_cast<CT>(BoardT::Tmask & ~usable[rc].data[col]);
+                            const int top = std::bit_width(blocked); // 0 if empty, else highest_bit+1
+                            const CT fill = static_cast<CT>((static_cast<CT>(1) << top) - static_cast<CT>(1));
+                            search[r].data[col] = static_cast<CT>(BoardT::Tmask ^ fill);
+                        }()), ...);
+                    }(std::make_index_sequence<BoardT::W>());
+
                     search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc]; // Quick tucks
                     search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
                 }()), ...);
@@ -263,20 +269,22 @@ private:
                 }
 
             // Fast init
-            constexpr auto ceiling = BoardT::H - p.h_gen();
             [&]<size_t... rs>(std::index_sequence<rs...>) {
                 (([&] {
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
-                    BoardT surface = ~usable[rc];
-                    [&]<size_t... i>(std::index_sequence<i...>) {
-                        ([&]<int shift> {
-                            if constexpr (ceiling >= shift)
-                                surface |= surface.template shifted<0, -shift>();
-                        }.template operator()<1 << i>(), ...);
-                    }(std::make_index_sequence<5>());
 
-                    search[r] = ~surface;
+                    [&]<size_t... c>(std::index_sequence<c...>) {
+                        (([&]{
+                            constexpr int col = static_cast<int>(c);
+                            using CT = typename BoardT::T;
+                            const CT blocked = static_cast<CT>(BoardT::Tmask & ~usable[rc].data[col]);
+                            const int top = std::bit_width(blocked);
+                            const CT fill = static_cast<CT>((static_cast<CT>(1) << top) - static_cast<CT>(1));
+                            search[r].data[col] = static_cast<CT>(BoardT::Tmask ^ fill);
+                        }()), ...);
+                    }(std::make_index_sequence<BoardT::W>());
+
                     search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
                     search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
 

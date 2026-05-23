@@ -9,8 +9,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace Cobra {
@@ -56,80 +56,66 @@ struct Board {
     static constexpr int W = COL_NB;
     static_assert(BoardBase::is_ok_h(H));
 
-    using T = uint64_t;
-    static constexpr int Tbits = std::numeric_limits<T>::digits;
-    static constexpr int Tlines = Tbits / W;
-    static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
-    static constexpr int Tn = ((H - 1) / Tlines) + 1;
+    using T = std::conditional_t<
+        H <= 8, uint8_t,
+        std::conditional_t<
+            H <= 16, uint16_t,
+            std::conditional_t<
+                H <= 32, uint32_t,
+                uint64_t
+            >
+        >
+    >;
 
-    using Bitboard [[gnu::vector_size(Tn * sizeof(T))]] = T;
-    // static_assert(sizeof(Bitboard) == Tn * sizeof(T));
+    static constexpr T Tmask = (H >= static_cast<int>(sizeof(T) * 8))
+        ? static_cast<T>(-1)
+        : (static_cast<T>(1) << H) - static_cast<T>(1);
 
-    Bitboard data;
+    T data[W];
 
     static constexpr bool is_ok_y_local(const int y) {
         return y >= 0 && y < H;
     }
 
-    template <int x, int y>
-    constexpr void set() {
-        static_assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
-    }
-
-    void set(const int x, const int y) {
+    constexpr void set(const int x, const int y) {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
-    }
-
-    template <int x, int y>
-    constexpr bool get() const {
-        static_assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
+        data[x] |= static_cast<T>(1) << y;
     }
 
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
+        return data[x] & (static_cast<T>(1) << y);
     }
 
-    // static constexpr Bitboard all() {
-    static consteval Bitboard all() {
-        Bitboard b{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((b[i] = Tall), ...);
-        }(std::make_index_sequence<Tn>());
-        return b;
-    };
-
-    template <int x>
-    // static constexpr Bitboard col_mask() {
-    static consteval Bitboard col_mask() {
+    static consteval Board all() {
         Board b{};
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (b.set<x, i>(), ...);
-        }(std::make_index_sequence<H>());
-        return b.data;
+            ((b.data[i] = Tmask), ...);
+        }(std::make_index_sequence<W>());
+        return b;
+    }
+
+    template <int x>
+    static consteval Board col_mask() {
+        Board b{};
+        b.data[x] = Tmask;
+        return b;
     }
 
     template <int dx>
-    // static constexpr Bitboard shift_mask() {
-    static consteval Bitboard shift_mask() {
+    static consteval Board shift_mask() {
         Board b{};
-        if constexpr (dx > 0)
+        if constexpr (dx > 0) {
             [&]<size_t... i>(std::index_sequence<i...>) {
-                (b.set<i / Tlines, i % Tlines>(), ...);
-            }(std::make_index_sequence<dx * Tlines>());
-        else if constexpr (dx < 0)
+                ((b.data[i + dx] = Tmask), ...);
+            }(std::make_index_sequence<W - dx>());
+        } else if constexpr (dx < 0) {
             [&]<size_t... i>(std::index_sequence<i...>) {
-                (b.set<W - 1 - (i / Tlines), i % Tlines>(), ...);
-            }(std::make_index_sequence<-dx * Tlines>());
-
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((b.data[i + 1] = b.data[0]), ...);
-        }(std::make_index_sequence<Tn - 1>());
-
-        return (~b).data;
+                ((b.data[i] = Tmask), ...);
+            }(std::make_index_sequence<W + dx>());
+        } else
+            b = all();
+        return b;
     }
 
     template <int dx, int dy>
@@ -137,61 +123,42 @@ struct Board {
         if constexpr (dx == 0 && dy == 0)
             return *this;
 
-        constexpr auto split_helper = [&]<int removed, bool right>(Bitboard bb) {
-            Bitboard result;
+        if constexpr (dy > 0)
             [&]<size_t... i>(std::index_sequence<i...>) {
-                ((
-                    result[i] = [&]{
-                        constexpr size_t index = right ? i - removed : i + removed;
-                        if constexpr (index >= Tn)
-                            return static_cast<T>(0);
-                        else
-                            return bb[index];
-                    }()
-                ), ...);
-            }(std::make_index_sequence<Tn>());
-            return result;
-        };
+                ((data[i] <<= dy), ...);
+            }(std::make_index_sequence<W>());
+        else if constexpr (dy < 0)
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] >>= -dy), ...);
+            }(std::make_index_sequence<W>());
 
-        constexpr auto shift_helper = [&]<int ddx, int ddy>(Bitboard bb) {
-            if constexpr (ddy == Tlines || ddy == -Tlines)
-                bb = Bitboard{};
-            else if constexpr (ddy < 0)
-                bb >>= -ddy * W;
-            else if constexpr (ddy > 0)
-                bb <<= ddy * W;
-
-            if constexpr (ddx > 0)
-                bb <<= ddx;
-            else if constexpr (ddx < 0)
-                bb >>= -ddx;
-
-            return bb;
-        };
-
-        if constexpr (dy == 0) {
-            if constexpr (dx > 0)
-                data <<= dx;
-            else if constexpr (dx < 0)
-                data >>= -dx;
-        } else if constexpr (dy > 0) {
-            constexpr int pad = (dy - 1) / Tlines;
-            constexpr int shift = ((dy - 1) % Tlines) + 1;
-            auto unmoved = split_helper.template operator()<pad, true>(shift_helper.template operator()<dx, shift>(data));
-            auto moved = split_helper.template operator()<pad + 1, true>(shift_helper.template operator()<dx, shift - Tlines>(data));
-            data = (unmoved | moved); // & all();
-        } else if constexpr (dy < 0) {
-            constexpr int pad = (-dy - 1) / Tlines;
-            constexpr int shift = ((-dy - 1) % Tlines) + 1;
-            auto unmoved = split_helper.template operator()<pad, false>(shift_helper.template operator()<dx, -shift>(data));
-            auto moved = split_helper.template operator()<pad + 1, false>(shift_helper.template operator()<dx, Tlines - shift>(data));
-            data = (unmoved | moved); // & all();
+        if constexpr (dx > 0) {
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[W - 1 - i] = data[W - 1 - i - dx]), ...);
+            }(std::make_index_sequence<W - dx>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] = T{0}), ...);
+            }(std::make_index_sequence<dx>());
+        } else if constexpr (dx < 0) {
+            constexpr int adx = -dx;
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] = data[i + adx]), ...);
+            }(std::make_index_sequence<W - adx>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i + W - adx] = T{0}), ...);
+            }(std::make_index_sequence<adx>());
         }
 
-        if constexpr (dx != 0)
-            data &= shift_mask<dx>();
-        else if constexpr (dy != 0)
-            data &= all();
+        if constexpr (dx != 0) {
+            const auto mask = shift_mask<dx>();
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] &= mask.data[i]), ...);
+            }(std::make_index_sequence<W>());
+        }
+        if constexpr (dy != 0 && dx == 0)
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] &= Tmask), ...);
+            }(std::make_index_sequence<W>());
 
         return *this;
     }
@@ -206,118 +173,109 @@ struct Board {
     constexpr bool any() const {
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return (data[i] || ...);
-        }(std::make_index_sequence<Tn>());
-
-        // No measurable difference in speed
-        // T temp{};
-        // [&]<size_t... i>(std::index_sequence<i...>) {
-        //     ((temp |= data[i]), ...);
-        // }(std::make_index_sequence<Tn>());
-        // return temp;
+        }(std::make_index_sequence<W>());
     }
 
     constexpr bool operator==(const Board& other) const {
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return ((data[i] == other.data[i]) && ...);
-        }(std::make_index_sequence<Tn>());
+        }(std::make_index_sequence<W>());
     }
 
     constexpr bool operator!=(const Board& other) const {
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return ((data[i] != other.data[i]) || ...);
-        }(std::make_index_sequence<Tn>());
+        }(std::make_index_sequence<W>());
     }
 
     constexpr Board operator~() const {
-        return Board{.data = all() & ~data};
+        Board result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[i] = Tmask & ~data[i]), ...);
+        }(std::make_index_sequence<W>());
+        return result;
     }
 
     constexpr Board& operator|=(const Board& other) {
-        data |= other.data;
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((data[i] |= other.data[i]), ...);
+        }(std::make_index_sequence<W>());
         return *this;
     }
 
     constexpr Board operator|(const Board& other) const {
-        return Board{.data = data | other.data};
+        Board result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[i] = data[i] | other.data[i]), ...);
+        }(std::make_index_sequence<W>());
+        return result;
     }
 
     constexpr Board& operator&=(const Board& other) {
-        data &= other.data;
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((data[i] &= other.data[i]), ...);
+        }(std::make_index_sequence<W>());
         return *this;
     }
 
     constexpr Board operator&(const Board& other) const {
-        return Board{.data = data & other.data};
+        Board result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[i] = data[i] & other.data[i]), ...);
+        }(std::make_index_sequence<W>());
+        return result;
     }
 
     constexpr Board& operator^=(const Board& other) {
-        data ^= other.data;
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((data[i] ^= other.data[i]), ...);
+        }(std::make_index_sequence<W>());
         return *this;
     }
 
     constexpr Board operator^(const Board& other) const {
-        return Board{.data = data ^ other.data};
+        Board result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[i] = data[i] ^ other.data[i]), ...);
+        }(std::make_index_sequence<W>());
+        return result;
     }
 
     constexpr Board line_clears() const {
-        return Board{.data = data & ((data & ~col_mask<W - 1>()) + col_mask<0>()) & col_mask<W - 1>()};
+        const T full = static_cast<T>([&]<size_t... i>(std::index_sequence<i...>) {
+            return (data[i] & ...);
+        }(std::make_index_sequence<W>()));
+
+        Board result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[i] = full), ...);
+        }(std::make_index_sequence<W>());
+        return result;
     }
 
     constexpr void clear_lines(const Board& lines) {
-        assert(lines.any());
-        assert(!Board{.data = lines.data & ~col_mask<W - 1>()}.any());
+        const T line_bits = lines.data[0];
 
-        std::array<int, Tn> prefix{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((prefix[i + 1] = prefix[i] + std::popcount(lines.data[i])), ...);
-        }(std::make_index_sequence<Tn - 1>());
-
-        Bitboard cleared{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
+        [&]<size_t... c>(std::index_sequence<c...>) {
             (([&]{
-                const T ld = data[i];
-                const T ll = lines.data[i];
-                T packed = 0;
+                constexpr int col = static_cast<int>(c);
+                T src = data[col] & ~line_bits;
+                T result = 0;
                 int dest = 0;
 
-                [&]<size_t... r>(std::index_sequence<r...>) {
+                [&]<size_t... row>(std::index_sequence<row...>) {
                     (([&]{
-                        constexpr int src = r * W;
-                        constexpr int src2 = src + (W - 1);
-                        constexpr T rowMask = (static_cast<T>(1) << W) - 1;
-                        if (((ll >> src2) & 1) == 0) {
-                            packed |= ((ld >> src) & rowMask) << dest;
-                            dest += W;
+                        constexpr int r = static_cast<int>(row);
+                        if (!(line_bits & (static_cast<T>(1) << r))) {
+                            result |= ((src >> r) & static_cast<T>(1)) << dest;
+                            ++dest;
                         }
                     }()), ...);
-                }(std::make_index_sequence<Tlines>());
+                }(std::make_index_sequence<H>());
 
-                cleared[i] = packed;
+                data[col] = result;
             }()), ...);
-        }(std::make_index_sequence<Tn>());
-
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
-                constexpr int dest = static_cast<int>(i);
-                T result = 0;
-
-                [&]<size_t... j>(std::index_sequence<j...>) {
-                    (([&]{
-                        constexpr int src = static_cast<int>(j);
-
-                        if constexpr (src >= dest) {
-                            const int relative = ((src - dest) * Tlines) - prefix[src];
-                            if (relative >= 0 && relative < Tlines)
-                                result |= cleared[src] << (relative * W);
-                            else if (relative < 0 && relative > -Tlines)
-                                result |= cleared[src] >> (-relative * W);
-                        }
-                    }()), ...);
-                }(std::make_index_sequence<Tn>());
-
-                data[dest] = result & Tall;
-            }()), ...);
-        }(std::make_index_sequence<Tn>());
+        }(std::make_index_sequence<W>());
     }
 
     template <Piece p, Rotation r>
@@ -354,18 +312,13 @@ struct Board {
         header += "\n";
 
         output += header;
-        auto output_row = [&]<int y>{
-            [&]<size_t... x>(std::index_sequence<x...>) {
-                ((output += (get<x, y>() ? " | #" : " |  ")), ...);
-            }(std::make_index_sequence<W>());
+        for (int y = lines - 1; y >= 0; --y) {
+            for (int x = 0; x < W; ++x)
+                output += (get(x, y) ? " | #" : " |  ");
             output += " |";
             output += header;
-        };
-        [&]<size_t... y>(std::index_sequence<y...>) {
-            (output_row.template operator()<lines - y - 1>(), ...);
-        }(std::make_index_sequence<lines>());
+        }
 
-        assert(output.size() == lenT);
         return output;
     }
 
@@ -375,31 +328,27 @@ struct Board {
 
         Board<H1> result{};
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = data[i]), ...);
-        }(std::make_index_sequence<std::min(Board<H1>::Tn, Tn)>());
+            ((result.data[i] = static_cast<typename Board<H1>::T>(data[i])), ...);
+        }(std::make_index_sequence<W>());
         return result;
     }
 
     constexpr int max_y() const {
-        #pragma unroll
-        for (int lane = Tn - 1; lane >= 0; --lane) {
-            const T bits = data[static_cast<size_t>(lane)];
-            if (!bits)
-                continue;
-
-            const int idx = (Tbits - 1) - std::countl_zero(bits);
-            const int y = (lane * Tlines) + (idx / W) + 1;
-            assert(y <= H);
-            return y;
-        }
-        return 0;
+        int best = 0;
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            (([&]{
+                const int idx = std::bit_width(data[i]);
+                best = std::max(idx, best);
+            }()), ...);
+        }(std::make_index_sequence<W>());
+        return best;
     }
 
     constexpr int popcount() const {
         int result = 0;
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((result += std::popcount(data[i])), ...);
-        }(std::make_index_sequence<Tn>());
+        }(std::make_index_sequence<W>());
         return result;
     }
 
@@ -407,16 +356,15 @@ struct Board {
     void for_each_set_bit(Fn&& fn) const {
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
+                constexpr int x = static_cast<int>(i);
                 T bits = data[i];
                 while (bits) {
-                    const int idx = std::countr_zero(bits);
-                    const int y = (static_cast<int>(i) * Tlines) + (idx / W);
-                    const int x = idx % W;
+                    const int y = std::countr_zero(bits);
                     fn(x, y);
                     bits &= bits - 1;
                 }
             }()), ...);
-        }(std::make_index_sequence<Tn>());
+        }(std::make_index_sequence<W>());
     }
 };
 

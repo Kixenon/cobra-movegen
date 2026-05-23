@@ -69,12 +69,25 @@ public:
         assert(all_valid(b));
     }
 
-    size_t size() const { return static_cast<size_t>(last - moves); }
-    bool empty() const { return last == moves; }
-    bool contains(const Move& m) const { return std::any_of(begin(), end(), [m](const Move& move) { return move == m; }); }
+    size_t size() const {
+        return static_cast<size_t>(last - moves);
+    }
 
-    const Move* begin() const { return moves; }
-    const Move* end() const { return last; }
+    bool empty() const {
+        return last == moves;
+    }
+
+    bool contains(const Move& m) const {
+        return std::any_of(begin(), end(), [m](const Move& move) { return move == m; });
+    }
+
+    const Move* begin() const {
+        return moves;
+    }
+
+    const Move* end() const {
+        return last;
+    }
 
 };
 
@@ -95,12 +108,17 @@ Move* generate(const Gen::CollisionMap<p1 == TSPIN ? T : p1>& cm, Move* moves, c
 
     auto remaining_index = [](int x, Rotation r) { return bb(x * ROTATION_NB + r); };
 
-    for (int x = 0; x < COL_NB; ++x)
-        for (int r = 0; r < canonicalSize; ++r) {
-            searched[x][r] = cm[x][r];
-            if constexpr (Gen::group2(p))
-                searched[x][r + 2] = searched[x][r];
-        }
+    [&]<size_t... xs>(std::index_sequence<xs...>) {
+        ([&]<int x>() {
+            [&]<size_t... rs>(std::index_sequence<rs...>) {
+                ([&]{
+                    searched[x][rs] = cm[x][rs];
+                    if constexpr (Gen::group2(p))
+                        searched[x][rs + 2] = searched[x][rs];
+                }(), ...);
+            }(std::make_index_sequence<canonicalSize>());
+        }.template operator()<xs>(), ...);
+    }(std::make_index_sequence<COL_NB>());
 
     if (slow) {
         const Bitboard spawn = [&]{

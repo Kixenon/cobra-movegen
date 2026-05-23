@@ -30,16 +30,28 @@ private:
     size_t length = 0;
 
 public:
-    void reverse() { std::reverse(inputs, inputs + length); }
+    void reverse() {
+        std::reverse(inputs, inputs + length);
+    }
+
     Inputs& operator+=(const Input input) {
         assert(input);
         assert(size() < MAX_INPUTS);
         inputs[length++] = input;
         return *this;
     }
-    size_t size() const { return length; }
-    const Input* begin() const { return inputs; }
-    const Input* end() const { return inputs + length; }
+
+    size_t size() const {
+        return length;
+    }
+
+    const Input* begin() const {
+        return inputs;
+    }
+
+    const Input* end() const {
+        return inputs + length;
+    }
 };
 
 template <Ruleset R, Piece p>

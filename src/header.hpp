@@ -125,18 +125,23 @@ public:
 constexpr bool is_ok(const Piece p) {
     return p >= I && p < PIECE_NB;
 }
+
 constexpr bool is_ok(const Rotation r) {
     return r >= NORTH && r < ROTATION_NB;
 }
+
 constexpr bool is_ok(const SpinType s) {
     return s >= NO_SPIN && s < SPIN_NB;
 }
+
 constexpr bool is_ok_x(const int x) {
     return x >= 0 && x < COL_NB;
 }
+
 constexpr bool is_ok_y(const int y) {
     return y >= 0 && y < ROW_NB;
 }
+
 constexpr bool is_ok(const Move& m) {
     return is_ok(m.piece()) && is_ok(m.rotation()) &&
            is_ok(m.spin()) && is_ok_x(m.x()) && is_ok_y(m.y());
@@ -145,7 +150,9 @@ constexpr bool is_ok(const Move& m) {
 /*----------------------------------------------------------------------------*/
 // Implementation
 
-constexpr bool operator!(const Piece& p) { return p == NO_PIECE; }
+constexpr bool operator!(const Piece& p) {
+    return p == NO_PIECE;
+}
 
 constexpr Coordinates& Coordinates::operator+=(const Coordinates& c) {
     x += c.x;

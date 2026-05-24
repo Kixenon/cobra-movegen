@@ -75,8 +75,7 @@ private:
                         (([&]{
                             using CT = BoardT::T;
                             const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
-                            const int inv = BoardT::H - std::bit_width(blocked);
-                            const CT fill = BoardT::Tall >> inv;
+                            const CT fill = BoardT::bb_low(std::bit_width(blocked));
                             search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
                         }()), ...);
                     }(std::make_index_sequence<BoardT::W>());
@@ -272,8 +271,7 @@ private:
                         (([&]{
                             using CT = BoardT::T;
                             const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
-                            const int inv = BoardT::H - std::bit_width(blocked);
-                            const CT fill = BoardT::Tall >> inv;
+                            const CT fill = BoardT::bb_low(std::bit_width(blocked));
                             search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
                         }()), ...);
                     }(std::make_index_sequence<BoardT::W>());

@@ -55,7 +55,12 @@ struct Board {
     static_assert(BoardBase::is_ok_h(H));
 
     using T = std::conditional_t<H <= 16, uint16_t, std::conditional_t<H <= 32, uint32_t, uint64_t>>;
-    static constexpr T Tall = static_cast<T>((1ULL << ROW_NB) - 1);
+
+    static constexpr T bb_low(const int i) {
+        return static_cast<T>((1ULL << i) - 1);
+    }
+
+    static constexpr T Tall = bb_low(H);
 
     T data[W];
 
@@ -71,21 +76,6 @@ struct Board {
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
         return data[x] & (static_cast<T>(1) << y);
-    }
-
-    static consteval Board all() {
-        Board b{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((b.data[i] = Tall), ...);
-        }(std::make_index_sequence<W>());
-        return b;
-    }
-
-    template <int x>
-    static consteval Board col_mask() {
-        Board b{};
-        b.data[x] = Tall;
-        return b;
     }
 
     template <int dx, int dy>
@@ -230,7 +220,7 @@ struct Board {
     }
 
     template <Piece p, Rotation r>
-    auto do_move(const int x, const int y) {
+    T do_move(const int x, const int y) {
         static_assert(p.is_ok() && r.is_ok());
         constexpr PieceCoordinates pc = piece_table<p, r>();
 

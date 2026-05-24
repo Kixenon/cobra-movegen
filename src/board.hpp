@@ -57,6 +57,7 @@ struct Board {
     using T = std::conditional_t<H <= 16, uint16_t, std::conditional_t<H <= 32, uint32_t, uint64_t>>;
 
     static constexpr T bb_low(const int i) {
+        assert(i >= 0 && i <= H);
         return static_cast<T>((1ULL << i) - 1);
     }
 

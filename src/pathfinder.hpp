@@ -55,7 +55,7 @@ public:
 };
 
 template <Ruleset R, Piece p>
-Inputs get_input_templated(const Board& b, const Move& target, const bool useFinesse, const bool force) {
+Inputs get_input(const Board& b, const Move& target, const bool useFinesse, const bool force) {
     static_assert(is_ok(p));
     assert(p == T || target.spin() == NO_SPIN);
 
@@ -237,13 +237,13 @@ template <Ruleset R>
 Inputs get_input(const Board& b, const Move& target, const bool useFinesse, const bool force) {
     assert(is_ok(target));
     switch (target.piece()) {
-        case I: return get_input_templated<R, I>(b, target, useFinesse, force);
-        case O: return get_input_templated<R, O>(b, target, useFinesse, force);
-        case T: return get_input_templated<R, T>(b, target, useFinesse, force);
-        case L: return get_input_templated<R, L>(b, target, useFinesse, force);
-        case J: return get_input_templated<R, J>(b, target, useFinesse, force);
-        case S: return get_input_templated<R, S>(b, target, useFinesse, force);
-        case Z: return get_input_templated<R, Z>(b, target, useFinesse, force);
+        case I: return get_input<R, I>(b, target, useFinesse, force);
+        case O: return get_input<R, O>(b, target, useFinesse, force);
+        case T: return get_input<R, T>(b, target, useFinesse, force);
+        case L: return get_input<R, L>(b, target, useFinesse, force);
+        case J: return get_input<R, J>(b, target, useFinesse, force);
+        case S: return get_input<R, S>(b, target, useFinesse, force);
+        case Z: return get_input<R, Z>(b, target, useFinesse, force);
         default: __builtin_unreachable();
     }
 }

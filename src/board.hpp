@@ -190,34 +190,14 @@ struct Board {
         }(std::make_index_sequence<W>()));
     }
 
-    constexpr void clear_lines(const T lines) {
+    constexpr void clear_lines(T lines) {
         assert(lines);
-        [&]<size_t... xs>(std::index_sequence<xs...>) {
-            (([&]{
-                T src = data[xs] & ~lines;
-                T result = 0;
-                int dest = 0;
-
-                [&]<size_t... ys>(std::index_sequence<ys...>) {
-                    (([&]{
-                        if (!(lines & (static_cast<T>(1) << ys))) {
-                            result |= ((src >> ys) & static_cast<T>(1)) << dest;
-                            ++dest;
-                        }
-                    }()), ...);
-                }(std::make_index_sequence<H>());
-
-                data[xs] = result;
-            }()), ...);
-        }(std::make_index_sequence<W>());
-
-        // Possible alternative, slightly slower in testing but might be noise
-        // do {
-        //     const T mask = static_cast<T>(~((lines & -lines) - 1));
-        //     [&]<size_t... xs>(std::index_sequence<xs...>) {
-        //         ((data[xs] = static_cast<T>(data[xs] ^ ((data[xs] ^ (data[xs] >> 1)) & mask))), ...);
-        //     }(std::make_index_sequence<W>());
-        // } while ((lines = static_cast<T>((lines & (lines - 1)) >> 1)));
+        do {
+            const T mask = static_cast<T>(~((lines & -lines) - 1));
+            [&]<size_t... xs>(std::index_sequence<xs...>) {
+                ((data[xs] = static_cast<T>(data[xs] ^ ((data[xs] ^ (data[xs] >> 1)) & mask))), ...);
+            }(std::make_index_sequence<W>());
+        } while ((lines = static_cast<T>((lines & (lines - 1)) >> 1)));
     }
 
     template <Piece p, Rotation r>

@@ -49,6 +49,8 @@ struct Rules : RulesetBase {
 };
 ```
 
+For bot usage, it may more suitable to use a [column-major version](https://github.com/Kixenon/cobra-movegen/tree/col-major2). This branch uses row-major bitboards.
+
 ## Links
 
 - [YouTube Channel](https://www.youtube.com/@cobra-tetris)

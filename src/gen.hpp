@@ -48,7 +48,7 @@ consteval size_t canonical_size() {
 }
 
 template <Piece p>
-consteval Rotation canonical_r(const Rotation r) {
+constexpr Rotation canonical_r(const Rotation r) {
     if constexpr (p == Piece::O)
         return Rotation::NORTH;
     if constexpr (group2(p))
@@ -57,7 +57,7 @@ consteval Rotation canonical_r(const Rotation r) {
 }
 
 template <Piece p>
-consteval Coordinates canonical_offset(const Rotation r) {
+constexpr Coordinates canonical_offset(const Rotation r) {
     if constexpr (p == Piece::I) {
         if (r == Rotation::SOUTH)
             return {1, 0};
@@ -119,7 +119,7 @@ enum Direction {
 };
 
 template <Direction d>
-consteval Rotation rotate(const Rotation r) {
+constexpr Rotation rotate(const Rotation r) {
     switch (d) {
         case CW: return Rotation((r + 1) & 3);
         case CCW: return Rotation((r + 3) & 3);

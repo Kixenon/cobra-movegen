@@ -1,6 +1,7 @@
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
+#include "arch/scalar.hpp"
 #include "header.hpp"
 
 #include <algorithm>
@@ -62,8 +63,7 @@ struct Board {
     static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
     static constexpr int Tn = ((H - 1) / Tlines) + 1;
 
-    using Bitboard [[gnu::vector_size(Tn * sizeof(T))]] = T;
-    // static_assert(sizeof(Bitboard) == Tn * sizeof(T));
+    using Bitboard = Arch::Bitboard<T, Tn>;
 
     Bitboard data;
 
@@ -74,23 +74,23 @@ struct Board {
     template <int x, int y>
     constexpr void set() {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
+        data[static_cast<size_t>(y / Tlines)] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
     }
 
     void set(const int x, const int y) {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        data[y / Tlines] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
+        data[static_cast<size_t>(y / Tlines)] |= static_cast<T>(1) << (((y % Tlines) * W) + x);
     }
 
     template <int x, int y>
     constexpr bool get() const {
         static_assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
+        return data[static_cast<size_t>(y / Tlines)] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
     }
 
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[y / Tlines] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
+        return data[static_cast<size_t>(y / Tlines)] & (static_cast<T>(1) << (((y % Tlines) * W) + x));
     }
 
     // static constexpr Bitboard all() {
@@ -179,13 +179,13 @@ struct Board {
             constexpr int shift = ((dy - 1) % Tlines) + 1;
             auto unmoved = split_helper.template operator()<pad, true>(shift_helper.template operator()<dx, shift>(data));
             auto moved = split_helper.template operator()<pad + 1, true>(shift_helper.template operator()<dx, shift - Tlines>(data));
-            data = (unmoved | moved); // & all();
+            data = unmoved | moved;
         } else if constexpr (dy < 0) {
             constexpr int pad = (-dy - 1) / Tlines;
             constexpr int shift = ((-dy - 1) % Tlines) + 1;
             auto unmoved = split_helper.template operator()<pad, false>(shift_helper.template operator()<dx, -shift>(data));
             auto moved = split_helper.template operator()<pad + 1, false>(shift_helper.template operator()<dx, Tlines - shift>(data));
-            data = (unmoved | moved); // & all();
+            data = unmoved | moved;
         }
 
         if constexpr (dx != 0)
@@ -204,11 +204,6 @@ struct Board {
     }
 
     constexpr bool any() const {
-#if defined(__has_builtin)
-#if __has_builtin(__builtin_reduce_or)
-        return __builtin_reduce_or(data) != 0;
-#endif
-#endif
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return (data[i] || ...);
         }(std::make_index_sequence<Tn>());
@@ -222,22 +217,12 @@ struct Board {
     }
 
     constexpr bool operator==(const Board& other) const {
-#if defined(__has_builtin)
-#if __has_builtin(__builtin_reduce_and)
-        return __builtin_reduce_and(data == other.data) != 0;
-#endif
-#endif
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return ((data[i] == other.data[i]) && ...);
         }(std::make_index_sequence<Tn>());
     }
 
     constexpr bool operator!=(const Board& other) const {
-#if defined(__has_builtin)
-#if __has_builtin(__builtin_reduce_or)
-        return __builtin_reduce_or(data != other.data) != 0;
-#endif
-#endif
         return [&]<size_t... i>(std::index_sequence<i...>) {
             return ((data[i] != other.data[i]) || ...);
         }(std::make_index_sequence<Tn>());

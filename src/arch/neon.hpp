@@ -1,13 +1,14 @@
 #ifndef ARCH_NEON_HPP
 #define ARCH_NEON_HPP
 
+#include "base.hpp"
+
+#include <arm_neon.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
-
-#include <arm_neon.h>
 
 namespace Cobra::Arch {
 
@@ -40,7 +41,6 @@ using neon_t = typename NeonVec<T>::type;
 template <typename T>
 constexpr size_t neon_lanes = NeonVec<T>::lanes;
 
-// Tail handled by caller
 template <typename T, size_t N>
 constexpr neon_t<T> load_block(const std::array<T, N>& data, size_t block) {
     if constexpr (std::is_same_v<T, uint16_t>)
@@ -124,16 +124,8 @@ constexpr neon_t<T> neon_shr(neon_t<T> v, int bits) {
 } // namespace detail
 
 template <typename T, size_t N>
-struct Bitboard {
-    std::array<T, N> data{};
-
-    constexpr T& operator[](size_t i) {
-        return data[i];
-    }
-
-    constexpr const T& operator[](size_t i) const {
-        return data[i];
-    }
+struct Bitboard : BitboardBase<T, N> {
+    using BitboardBase<T, N>::data;
 
     constexpr Bitboard operator~() const {
         if consteval {
@@ -175,12 +167,6 @@ struct Bitboard {
         return *this;
     }
 
-    constexpr Bitboard operator|(const Bitboard& other) const {
-        Bitboard r = *this;
-        r |= other;
-        return r;
-    }
-
     constexpr Bitboard& operator&=(const Bitboard& other) {
         if consteval {
             [&]<size_t... i>(std::index_sequence<i...>) {
@@ -200,12 +186,6 @@ struct Bitboard {
         return *this;
     }
 
-    constexpr Bitboard operator&(const Bitboard& other) const {
-        Bitboard r = *this;
-        r &= other;
-        return r;
-    }
-
     constexpr Bitboard& operator^=(const Bitboard& other) {
         if consteval {
             [&]<size_t... i>(std::index_sequence<i...>) {
@@ -223,12 +203,6 @@ struct Bitboard {
             ((data[tail_start + i] ^= other[tail_start + i]), ...);
         }(std::make_index_sequence<N - tail_start>());
         return *this;
-    }
-
-    constexpr Bitboard operator^(const Bitboard& other) const {
-        Bitboard r = *this;
-        r ^= other;
-        return r;
     }
 
     constexpr Bitboard& operator<<=(const int bits) {
@@ -252,12 +226,6 @@ struct Bitboard {
         return *this;
     }
 
-    constexpr Bitboard operator<<(const int bits) const {
-        Bitboard r = *this;
-        r <<= bits;
-        return r;
-    }
-
     constexpr Bitboard& operator>>=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
@@ -277,30 +245,6 @@ struct Bitboard {
             ((data[tail_start + i] = static_cast<T>(data[tail_start + i] >> bits)), ...);
         }(std::make_index_sequence<N - tail_start>());
         return *this;
-    }
-
-    constexpr Bitboard operator>>(const int bits) const {
-        Bitboard r = *this;
-        r >>= bits;
-        return r;
-    }
-
-    constexpr bool any() const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return (data[i] || ...);
-        }(std::make_index_sequence<N>());
-    }
-
-    constexpr bool operator==(const Bitboard& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] == other[i]) && ...);
-        }(std::make_index_sequence<N>());
-    }
-
-    constexpr bool operator!=(const Bitboard& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] != other[i]) || ...);
-        }(std::make_index_sequence<N>());
     }
 };
 

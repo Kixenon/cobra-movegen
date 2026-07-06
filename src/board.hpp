@@ -143,7 +143,9 @@ struct Board {
     }
 
     constexpr Board operator|(const Board& other) const {
-        return {.data = data | other.data};
+        Board r = *this;
+        r |= other;
+        return r;
     }
 
     constexpr Board& operator&=(const Board& other) {
@@ -152,7 +154,9 @@ struct Board {
     }
 
     constexpr Board operator&(const Board& other) const {
-        return {.data = data & other.data};
+        Board r = *this;
+        r &= other;
+        return r;
     }
 
     constexpr Board& operator^=(const Board& other) {
@@ -161,7 +165,9 @@ struct Board {
     }
 
     constexpr Board operator^(const Board& other) const {
-        return {.data = data ^ other.data};
+        Board r = *this;
+        r ^= other;
+        return r;
     }
 
     constexpr T line_clears() const {

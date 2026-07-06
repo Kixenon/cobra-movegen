@@ -3,6 +3,12 @@
 
 #include "header.hpp"
 
+#if defined(__ARM_NEON)
+#include "arch/neon.hpp"
+#else
+#include "arch/scalar.hpp"
+#endif
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -40,9 +46,6 @@ constexpr auto route(const int h, Fn&& fn) {
         case Y[0]: return fn.template operator()<Y[0]>();
         case Y[1]: return fn.template operator()<Y[1]>();
         default: return fn.template operator()<H>();
-        // Somehow using the below is quite a lot slower?
-        // case H: return fn.template operator()<H>();
-        // default: std::unreachable();
     }
 }
 
@@ -55,6 +58,7 @@ struct Board {
     static_assert(BoardBase::is_ok_h(H));
 
     using T = std::conditional_t<H <= 16, uint16_t, std::conditional_t<H <= 32, uint32_t, uint64_t>>;
+    using Bitboard = Arch::Bitboard<T, W>;
 
     static constexpr T bb_low(const int i) {
         assert(i >= 0 && i <= H);
@@ -63,7 +67,7 @@ struct Board {
 
     static constexpr T Tall = bb_low(H);
 
-    T data[W];
+    Bitboard data;
 
     static constexpr bool is_ok_y_local(const int y) {
         return y >= 0 && y < H;
@@ -71,12 +75,12 @@ struct Board {
 
     constexpr void set(const int x, const int y) {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        data[x] |= static_cast<T>(1) << y;
+        data[static_cast<size_t>(x)] |= static_cast<T>(1) << y;
     }
 
     constexpr bool get(const int x, const int y) const {
         assert(is_ok_x(x) && is_ok_y_local(y));
-        return data[x] & (static_cast<T>(1) << y);
+        return data[static_cast<size_t>(x)] & (static_cast<T>(1) << y);
     }
 
     template <int dx, int dy>
@@ -114,21 +118,15 @@ struct Board {
     }
 
     constexpr bool any() const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return (data[i] || ...);
-        }(std::make_index_sequence<W>());
+        return data.any();
     }
 
     constexpr bool operator==(const Board& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] == other.data[i]) && ...);
-        }(std::make_index_sequence<W>());
+        return data == other.data;
     }
 
     constexpr bool operator!=(const Board& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] != other.data[i]) || ...);
-        }(std::make_index_sequence<W>());
+        return data != other.data;
     }
 
     constexpr Board operator~() const {
@@ -140,48 +138,30 @@ struct Board {
     }
 
     constexpr Board& operator|=(const Board& other) {
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[i] |= other.data[i]), ...);
-        }(std::make_index_sequence<W>());
+        data |= other.data;
         return *this;
     }
 
     constexpr Board operator|(const Board& other) const {
-        Board result{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = data[i] | other.data[i]), ...);
-        }(std::make_index_sequence<W>());
-        return result;
+        return {.data = data | other.data};
     }
 
     constexpr Board& operator&=(const Board& other) {
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[i] &= other.data[i]), ...);
-        }(std::make_index_sequence<W>());
+        data &= other.data;
         return *this;
     }
 
     constexpr Board operator&(const Board& other) const {
-        Board result{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = data[i] & other.data[i]), ...);
-        }(std::make_index_sequence<W>());
-        return result;
+        return {.data = data & other.data};
     }
 
     constexpr Board& operator^=(const Board& other) {
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[i] ^= other.data[i]), ...);
-        }(std::make_index_sequence<W>());
+        data ^= other.data;
         return *this;
     }
 
     constexpr Board operator^(const Board& other) const {
-        Board result{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = data[i] ^ other.data[i]), ...);
-        }(std::make_index_sequence<W>());
-        return result;
+        return {.data = data ^ other.data};
     }
 
     constexpr T line_clears() const {

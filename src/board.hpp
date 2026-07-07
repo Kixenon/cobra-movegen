@@ -20,6 +20,15 @@ namespace BoardBase {
 
 constexpr std::array Y = {6, 12, 18, 24};
 constexpr int H = ROW_NB;
+constexpr int W = COL_NB;
+
+constexpr int BUFFER_X = 2;
+constexpr int BUFFER_Y = 3;
+
+using T = uint64_t;
+constexpr int Tbits = std::numeric_limits<T>::digits;
+constexpr int Tlines = Tbits / W;
+constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
 
 constexpr bool is_ok_h(const int h) {
     return std::ranges::contains(Y, h) || h == H;
@@ -49,22 +58,68 @@ constexpr auto route(const int h, Fn&& fn) {
     }
 }
 
+template <int x>
+consteval T col_mask() {
+    static_assert(is_ok_x(x));
+    T l = 0;
+    for (int i = 0; i < Tlines; ++i)
+        l |= (static_cast<T>(1) << ((i * W) + x));
+    return l;
+}
+
+template <Piece p, Rotation r>
+consteval std::pair<T, T> placement_mask(const int i) {
+    assert(i >= 0 && i < Tlines);
+    constexpr auto pc = piece_table<p, r>();
+    const int boff = i < BUFFER_Y ? -1 : 0;
+    T a = 0;
+    T b = 0;
+
+    auto add = [&](int8_t x, int8_t y) {
+        const int ry = i + y - (boff * Tlines);
+        const int bit = (ry * W) + x + BUFFER_X;
+        if (ry < Tlines)
+            a |= static_cast<T>(1) << bit;
+        else
+            b |= static_cast<T>(1) << (bit - (Tlines * W));
+    };
+    add(0, 0);
+    add(pc[0].x, pc[0].y);
+    add(pc[1].x, pc[1].y);
+    add(pc[2].x, pc[2].y);
+
+    return {a, b};
+}
+
+template <Piece p>
+consteval auto placement_table() {
+    std::array<std::array<std::pair<T, T>, Tlines>, Rotation::size> out{};
+    [&]<size_t... rs>(std::index_sequence<rs...>) {
+        (([&]{
+            constexpr Rotation r(rs);
+            [&]<size_t... ys>(std::index_sequence<ys...>) {
+                ((out[r][ys] = placement_mask<p, r>(ys)), ...);
+            }(std::make_index_sequence<Tlines>());
+        }()), ...);
+    }(std::make_index_sequence<Rotation::size>());
+    return out;
+}
+
 } // namespace BoardBase
 
 template <int Height = BoardBase::H>
 struct Board {
     static constexpr int H = Height;
-    static constexpr int W = COL_NB;
+    static constexpr int W = BoardBase::W;
     static_assert(BoardBase::is_ok_h(H));
 
-    using T = uint64_t;
-    static constexpr int Tbits = std::numeric_limits<T>::digits;
-    static constexpr int Tlines = Tbits / W;
-    static constexpr T Tall = static_cast<T>(-1) >> (Tbits - (Tlines * W));
+    using T = BoardBase::T;
+    static constexpr auto Tbits = BoardBase::Tbits;
+    static constexpr auto Tlines = BoardBase::Tlines;
+    static constexpr auto Tall = BoardBase::Tall;
     static constexpr int Tn = ((H - 1) / Tlines) + 1;
 
     using Bitboard = Arch::Bitboard<T, Tn>;
-
     Bitboard data;
 
     static constexpr bool is_ok_y_local(const int y) {
@@ -323,16 +378,25 @@ struct Board {
     template <Piece p, Rotation r>
     auto do_move(const int x, const int y) {
         static_assert(p.is_ok() && r.is_ok());
-        constexpr PieceCoordinates pc = piece_table<p, r>();
+        constexpr auto table = BoardBase::placement_table<p>();
+        const auto& m = table[r][static_cast<size_t>(y % Tlines)];
+        const int boff = y % Tlines < BoardBase::BUFFER_Y ? -1 : 0;
+        const size_t w = static_cast<size_t>((y / Tlines) + boff);
 
-        set(x, y);
-        set(x + pc[0].x, y + pc[0].y);
-        set(x + pc[1].x, y + pc[1].y);
-        set(x + pc[2].x, y + pc[2].y);
+        bool clear = false;
+        auto check = [&](T bits, T& l) {
+            if (!bits)
+                return;
+            l |= (bits << x) >> BoardBase::BUFFER_X;
+            clear |= l & ((l & ~BoardBase::col_mask<W - 1>()) + BoardBase::col_mask<0>()) & BoardBase::col_mask<W - 1>();
+        };
+        check(m.first, data[w]);
+        check(m.second, data[w + 1]);
+        if (!clear)
+            return Board{};
 
         const auto clears = line_clears();
-        if (clears.any())
-            clear_lines(clears);
+        clear_lines(clears);
 
         return clears;
     }

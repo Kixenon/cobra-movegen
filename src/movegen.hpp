@@ -5,10 +5,12 @@
 #include "gen.hpp"
 #include "ruleset.hpp"
 
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 
 namespace Cobra {
@@ -39,6 +41,7 @@ private:
 
         std::bitset<cSize> remaining;
         std::bitset<sSize> done;
+        bool fast = true;
         // 500 iq syntax
         do {
             // Slow init
@@ -63,6 +66,7 @@ private:
                     remaining.set();
                     done.set();
                     done.reset(Rotation::NORTH);
+                    fast = false;
 
                     break;
                 }
@@ -156,8 +160,56 @@ private:
                         constexpr size_t kickIndex = Gen::kick_index<RulesT, p>();
                         constexpr size_t kick180Index = Gen::kick180_index<p>();
 
+                        constexpr auto env = []{
+                            constexpr auto k1 = Gen::kicks[kickIndex][Gen::Direction::CW][r];
+                            constexpr auto k2 = Gen::kicks[kickIndex][Gen::Direction::CCW][r];
+                            constexpr auto off1 = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(Gen::rotate<Gen::Direction::CW>(r));
+                            constexpr auto off2 = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(Gen::rotate<Gen::Direction::CCW>(r));
+
+                            std::array<int8_t, 4> out{};
+                            auto update = [&](auto kick, auto off) {
+                                const int8_t kx = kick.x + off.x;
+                                const int8_t ky = kick.y + off.y;
+                                out[0] = std::min(kx, out[0]);
+                                out[1] = std::max(kx, out[1]);
+                                out[2] = std::min(ky, out[2]);
+                                out[3] = std::max(ky, out[3]);
+                            };
+                            [&]<size_t... i>(std::index_sequence<i...>) {
+                                ((update(k1[i], off1), update(k2[i], off2)), ...);
+                            }(std::make_index_sequence<k1.size()>());
+
+                            return out;
+                        }();
+
+                        auto probe = search[r];
+                        if (fast) {
+                            [&]<size_t... i>(std::index_sequence<i...>) {
+                                (([&]{
+                                    const int x = i + 1;
+                                    if constexpr (env[0] <= -x)
+                                        probe |= probe.template shifted<-x, 0>();
+                                    if constexpr (env[1] >= x)
+                                        probe |= probe.template shifted<x, 0>();
+                                }()), ...);
+                            }(std::make_index_sequence<2>());
+                            [&]<size_t... i>(std::index_sequence<i...>) {
+                                (([&]{
+                                    const int y = i + 1;
+                                    if constexpr (env[2] <= -y)
+                                        probe |= probe.template shifted<0, -y>();
+                                    if constexpr (env[3] >= y)
+                                        probe |= probe.template shifted<0, y>();
+                                }()), ...);
+                            }(std::make_index_sequence<2>());
+                        }
+
                         auto rotate = [&]<Gen::Direction d, const auto& kickTable>{
                             constexpr Rotation r1 = Gen::rotate<d>(r);
+                            if constexpr (d != Gen::Direction::FLIP)
+                                if (fast && !(probe & unsearched[r1]).any())
+                                    return;
+
                             constexpr Rotation r1c = Gen::canonical_r<p>(r1);
                             constexpr auto off = Gen::canonical_offset<p>(r) - Gen::canonical_offset<p>(r1);
                             constexpr size_t kickSize = Gen::kick_size<RulesT, d, kickTable[r].size()>();

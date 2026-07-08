@@ -25,6 +25,7 @@ namespace BoardBase {
 
 constexpr std::array Y = {16, 32};
 constexpr int H = ROW_NB;
+constexpr int8_t BUFFER = 2;
 
 constexpr bool is_ok_h(const int h) {
     return std::ranges::contains(Y, h) || h == H;
@@ -48,6 +49,35 @@ constexpr auto route(const int h, Fn&& fn) {
         default: return fn.template operator()<H>();
     }
 }
+
+template <Piece p, Rotation r>
+struct SmearedPiece {
+    static constexpr auto make() {
+        constexpr PieceCoordinates pc = piece_table<p, r>();
+        constexpr auto d1 = std::min({int8_t{0}, pc[0].x, pc[1].x, pc[2].x});
+        constexpr auto d2 = std::max({int8_t{0}, pc[0].x, pc[1].x, pc[2].x});
+        constexpr uint8_t cnt = static_cast<uint8_t>(d2 - d1 + 1);
+
+        std::array<uint8_t, 4> m{};
+        auto add = [&](int8_t dx, int8_t dy) {
+            const uint8_t col = static_cast<uint8_t>(dx - d1);
+            m[col] = m[col] | static_cast<uint8_t>(1 << (dy + BUFFER));
+        };
+        add(0, 0);
+        add(pc[0].x, pc[0].y);
+        add(pc[1].x, pc[1].y);
+        add(pc[2].x, pc[2].y);
+
+        struct R {
+            std::array<uint8_t, 4> masks;
+            uint8_t count;
+            int8_t off;
+        };
+        return R{m, cnt, d1};
+    }
+
+    static constexpr auto data = make();
+};
 
 } // namespace BoardBase
 
@@ -189,12 +219,11 @@ struct Board {
     template <Piece p, Rotation r>
     T do_move(const int x, const int y) {
         static_assert(p.is_ok() && r.is_ok());
-        constexpr PieceCoordinates pc = piece_table<p, r>();
+        constexpr auto sp = BoardBase::SmearedPiece<p, r>::data;
 
-        set(x, y);
-        set(x + pc[0].x, y + pc[0].y);
-        set(x + pc[1].x, y + pc[1].y);
-        set(x + pc[2].x, y + pc[2].y);
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((data[static_cast<size_t>(x + sp.off) + i] |= static_cast<T>((static_cast<uint64_t>(sp.masks[i]) << y) >> BoardBase::BUFFER)), ...);
+        }(std::make_index_sequence<sp.count>());
 
         const auto clears = line_clears();
         if (clears)

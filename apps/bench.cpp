@@ -143,7 +143,7 @@ void test() {
     const auto end = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     std::cout << "\nTotal test time: " << totalTime << "ms | " << dt << "ms\n";
-    std::cout << "Total nodes per second: " << (totalNodes * 1000) / std::max(totalTime, 1ULL) << std::endl;
+    std::cout << "Total nodes per second: " << (totalNodes * 1000) / std::max(totalTime, uint64_t{1}) << std::endl;
 }
 
 } // namespace

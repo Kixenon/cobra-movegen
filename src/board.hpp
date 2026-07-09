@@ -5,6 +5,8 @@
 
 #if defined(__ARM_NEON)
 #include "arch/neon.hpp"
+#elif __has_include(<experimental/simd>) && !defined(__APPLE__)
+#include "arch/simd.hpp"
 #else
 #include "arch/scalar.hpp"
 #endif

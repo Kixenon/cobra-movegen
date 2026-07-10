@@ -1,7 +1,11 @@
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
+#if __has_include(<experimental/simd>) && !defined(__APPLE__)
+#include "arch/simd.hpp"
+#else
 #include "arch/scalar.hpp"
+#endif
 #include "header.hpp"
 
 #include <algorithm>

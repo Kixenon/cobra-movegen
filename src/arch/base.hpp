@@ -35,12 +35,6 @@ struct BitboardBase {
         return *this;
     }
 
-    constexpr BitboardBase operator|(const BitboardBase& other) const {
-        BitboardBase r = *this;
-        r |= other;
-        return r;
-    }
-
     constexpr BitboardBase& operator&=(const BitboardBase& other) {
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[i] &= other[i]), ...);
@@ -48,23 +42,11 @@ struct BitboardBase {
         return *this;
     }
 
-    constexpr BitboardBase operator&(const BitboardBase& other) const {
-        BitboardBase r = *this;
-        r &= other;
-        return r;
-    }
-
     constexpr BitboardBase& operator^=(const BitboardBase& other) {
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[i] ^= other[i]), ...);
         }(std::make_index_sequence<N>());
         return *this;
-    }
-
-    constexpr BitboardBase operator^(const BitboardBase& other) const {
-        BitboardBase r = *this;
-        r ^= other;
-        return r;
     }
 
     constexpr BitboardBase& operator<<=(const int bits) {
@@ -76,12 +58,6 @@ struct BitboardBase {
         return *this;
     }
 
-    constexpr BitboardBase operator<<(const int bits) const {
-        BitboardBase r = *this;
-        r <<= bits;
-        return r;
-    }
-
     constexpr BitboardBase& operator>>=(const int bits) {
         assert(bits >= 0 && bits < sizeof(T) * 8);
         BitboardBase input = *this;
@@ -89,12 +65,6 @@ struct BitboardBase {
             ((data[i] = static_cast<T>(input[i] >> bits)), ...);
         }(std::make_index_sequence<N>());
         return *this;
-    }
-
-    constexpr BitboardBase operator>>(const int bits) const {
-        BitboardBase r = *this;
-        r >>= bits;
-        return r;
     }
 
     constexpr bool any() const {

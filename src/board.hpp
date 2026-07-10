@@ -288,7 +288,7 @@ struct Board {
     }
 
     constexpr Board operator~() const {
-        return Board{.data = all() & ~data};
+        return Board{all() & ~data};
     }
 
     constexpr Board& operator|=(const Board& other) {
@@ -297,7 +297,7 @@ struct Board {
     }
 
     constexpr Board operator|(const Board& other) const {
-        return Board{.data = data | other.data};
+        return Board{data | other.data};
     }
 
     constexpr Board& operator&=(const Board& other) {
@@ -306,7 +306,7 @@ struct Board {
     }
 
     constexpr Board operator&(const Board& other) const {
-        return Board{.data = data & other.data};
+        return Board{data & other.data};
     }
 
     constexpr Board& operator^=(const Board& other) {
@@ -315,16 +315,16 @@ struct Board {
     }
 
     constexpr Board operator^(const Board& other) const {
-        return Board{.data = data ^ other.data};
+        return Board{data ^ other.data};
     }
 
     constexpr Board line_clears() const {
-        return Board{.data = data & ((data & ~col_mask<W - 1>()) + col_mask<0>()) & col_mask<W - 1>()};
+        return Board{data & ((data & ~col_mask<W - 1>()) + col_mask<0>()) & col_mask<W - 1>()};
     }
 
     constexpr void clear_lines(const Board& lines) {
         assert(lines.any());
-        assert(!Board{.data = lines.data & ~col_mask<W - 1>()}.any());
+        assert(!Board{lines.data & ~col_mask<W - 1>()}.any());
 
         std::array<int, Tn> prefix{};
         [&]<size_t... i>(std::index_sequence<i...>) {

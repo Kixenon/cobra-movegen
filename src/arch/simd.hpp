@@ -115,6 +115,25 @@ struct Bitboard : BitboardBase<T, N> {
         return *this;
     }
 
+    constexpr Bitboard& operator+=(const Bitboard& other) {
+        if consteval {
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((data[i] += other[i]), ...);
+            }(std::make_index_sequence<N>());
+            return *this;
+        }
+
+        constexpr size_t blocks = N / detail::simd_lanes<N>;
+        constexpr size_t tail_start = blocks * detail::simd_lanes<N>;
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((detail::store_block<N>(data, i, detail::load_block<N>(data, i) + detail::load_block<N>(other.data, i))), ...);
+        }(std::make_index_sequence<blocks>());
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((data[tail_start + i] += other[tail_start + i]), ...);
+        }(std::make_index_sequence<N - tail_start>());
+        return *this;
+    }
+
     constexpr Bitboard& operator<<=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {

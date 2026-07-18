@@ -1,5 +1,4 @@
-#ifndef ARCH_BASE_HPP
-#define ARCH_BASE_HPP
+#pragma once
 
 #include <array>
 #include <cassert>
@@ -130,5 +129,3 @@ struct BitboardBase {
 };
 
 } // namespace Cobra::Arch
-
-#endif

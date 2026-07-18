@@ -1,5 +1,4 @@
-#ifndef RULESET_HPP
-#define RULESET_HPP
+#pragma once
 
 #include "header.hpp"
 
@@ -39,5 +38,3 @@ concept Ruleset = requires {
   && (R::SPAWN_Y >= 0 && R::SPAWN_Y < ROW_NB);
 
 } // namespace Cobra
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef PATHFINDER_HPP
-#define PATHFINDER_HPP
+#pragma once
 
 #include "board.hpp"
 #include "gen.hpp"
@@ -228,5 +227,3 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
 } // namespace PathFinder
 
 } // namespace Cobra
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HEADER_HPP
-#define HEADER_HPP
+#pragma once
 
 #include <algorithm>
 #include <array>
@@ -203,5 +202,3 @@ consteval PieceCoordinates piece_table() {
 }
 
 } // namespace Cobra
-
-#endif

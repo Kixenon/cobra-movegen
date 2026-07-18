@@ -1,5 +1,4 @@
-#ifndef GEN_HPP
-#define GEN_HPP
+#pragma once
 
 #include "header.hpp"
 #include "ruleset.hpp"
@@ -226,5 +225,3 @@ consteval size_t kick_size() {
 } // namespace Gen
 
 } // namespace Cobra
-
-#endif

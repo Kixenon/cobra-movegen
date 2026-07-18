@@ -1,5 +1,4 @@
-#ifndef BOARD_HPP
-#define BOARD_HPP
+#pragma once
 
 #if __has_include(<experimental/simd>) && !defined(__APPLE__)
 #include "arch/simd.hpp"
@@ -22,7 +21,11 @@ namespace Cobra {
 
 namespace BoardBase {
 
+#if __has_include(<experimental/simd>) && !defined(__APPLE__)
+constexpr std::array Y = {6, 12, 24, ROW_NB};
+#else
 constexpr std::array Y = {6, 12, 18, 24};
+#endif
 constexpr int H = ROW_NB;
 constexpr int W = COL_NB;
 
@@ -56,9 +59,6 @@ constexpr auto route(const int h, Fn&& fn) {
         case Y[2]: return fn.template operator()<Y[2]>();
         case Y[3]: return fn.template operator()<Y[3]>();
         default: return fn.template operator()<H>();
-        // Somehow using the below is quite a lot slower?
-        // case H: return fn.template operator()<H>();
-        // default: std::unreachable();
     }
 }
 
@@ -489,5 +489,3 @@ struct Board {
 };
 
 } // namespace Cobra
-
-#endif

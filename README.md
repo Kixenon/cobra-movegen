@@ -26,7 +26,7 @@ Cobra Movegen achieves high single-thread performance through data-level paralle
 Benchmarked on an M2 MacBook Pro (results may vary):
 ```bash
 ./bin/bench IOLJSZT
-Depth: 7 Nodes: 2647076135 Time: 5946ms NPS: 445111171
+Depth: 7 Nodes: 2647076135 Time: 5070ms NPS: 522002787
 ```
 
 ## Usage

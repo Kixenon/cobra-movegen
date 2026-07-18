@@ -1,3 +1,9 @@
+## Important:
+
+This branch has been merged into main and is thus depreciated.
+
+---
+
 <div align="center">
     <h2>Cobra Movegen</h2>
 

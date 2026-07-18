@@ -1,5 +1,4 @@
-#ifndef BOARD_HPP
-#define BOARD_HPP
+#pragma once
 
 #include "header.hpp"
 
@@ -304,5 +303,3 @@ struct Board {
 };
 
 } // namespace Cobra
-
-#endif

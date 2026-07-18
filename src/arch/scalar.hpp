@@ -1,5 +1,4 @@
-#ifndef ARCH_SCALAR_HPP
-#define ARCH_SCALAR_HPP
+#pragma once
 
 #include "base.hpp"
 #include <cstddef>
@@ -10,5 +9,3 @@ template <typename T, size_t N>
 struct Bitboard : BitboardBase<T, N> {};
 
 } // namespace Cobra::Arch
-
-#endif

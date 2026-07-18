@@ -1,5 +1,4 @@
-#ifndef ARCH_NEON_HPP
-#define ARCH_NEON_HPP
+#pragma once
 
 #include "base.hpp"
 
@@ -249,5 +248,3 @@ struct Bitboard : BitboardBase<T, N> {
 };
 
 } // namespace Cobra::Arch
-
-#endif

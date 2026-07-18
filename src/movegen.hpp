@@ -1,5 +1,4 @@
-#ifndef MOVEGEN_HPP
-#define MOVEGEN_HPP
+#pragma once
 
 #include "header.hpp"
 #include "gen.hpp"
@@ -421,5 +420,3 @@ public:
 };
 
 } // namespace Cobra
-
-#endif

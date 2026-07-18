@@ -33,8 +33,10 @@ Depth: 7 Nodes: 2647076135 Time: 5070ms NPS: 522002787
 
 - Requires C++23
 ```bash
-make help # Shows build information
-make bench && ./bin/bench <queue (e.g. "IOLJSZT") or "test">
+make help                 # Shows build information
+make bench                # Row-major backend (default)
+make bench backend=col    # Column-major backend
+./bin/bench <queue (e.g. "IOLJSZT") or "test">
 ```
 
 If you wish to use this as a submodule, simply include headers in `src`.
@@ -48,8 +50,6 @@ struct Rules : RulesetBase {
     static constexpr bool ENABLE_180 = false;
 };
 ```
-
-For bot usage, it may more suitable to use a [column-major version](https://github.com/Kixenon/cobra-movegen/tree/col-major2). This branch uses row-major bitboards.
 
 ## Links
 

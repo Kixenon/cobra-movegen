@@ -6,7 +6,7 @@
 
 ## Overview
 
-This is the column-major version of [cobra-movegen](https://github.com/Kixenon/cobra-movegen). Although slightly slower, it may be more suitable for bot usage.
+This is the column-major version of [cobra-movegen](https://github.com/Kixenon/cobra-movegen). It may be more suitable for bot usage.
 
 This project was originally derived from [Cobra](https://www.youtube.com/@cobra-tetris), but has since gone through major changes, with some reference from [fast-reachability](https://github.com/ImpleLee/fast-reachability/tree/avx512-perft).
 
@@ -28,7 +28,7 @@ Cobra Movegen achieves high single-thread performance through data-level paralle
 Benchmarked on an M2 MacBook Pro (results may vary):
 ```bash
 ./bin/bench IOLJSZT
-Depth: 7 Nodes: 2647076135 Time: 8109ms NPS: 326396564
+Depth: 7 Nodes: 2647076135 Time: 5023ms NPS: 526886173
 ```
 
 ## Usage

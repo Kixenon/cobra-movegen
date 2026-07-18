@@ -1,6 +1,11 @@
-#include "../src/board.hpp"
+#ifdef COBRA_COL_MAJOR
+#include "../src/col/board.hpp"
+#include "../src/col/movegen.hpp"
+#else
+#include "../src/row/board.hpp"
+#include "../src/row/movegen.hpp"
+#endif
 #include "../src/header.hpp"
-#include "../src/movegen.hpp"
 #include "../src/ruleset.hpp"
 
 #include <algorithm>

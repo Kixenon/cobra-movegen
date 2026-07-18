@@ -1,8 +1,8 @@
 #pragma once
 
-#include "header.hpp"
+#include "../header.hpp"
+#include "../ruleset.hpp"
 #include "gen.hpp"
-#include "ruleset.hpp"
 
 #include <algorithm>
 #include <array>

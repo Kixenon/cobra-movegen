@@ -2,6 +2,11 @@ CXX = clang++
 
 FLAGS = -Wall -Wextra -Wshadow -Wmissing-declarations -Wconversion -fno-exceptions -std=c++23
 
+backend ?= row
+ifeq ($(backend),col)
+FLAGS += -DCOBRA_COL_MAJOR
+endif
+
 debug ?= no
 optimise ?= yes
 
@@ -59,6 +64,7 @@ help:
 	@echo "  clean             Remove all build artifacts"
 	@echo ""
 	@echo "Configuration (pass as arguments):"
+	@echo "  backend=col       Use column-major backend (default: row)"
 	@echo "  debug=yes         Enable debug build (default: no)"
 	@echo "  optimise=no       Disable optimisations (default: yes)"
 	@echo ""

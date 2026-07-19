@@ -54,33 +54,15 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
     uint64_t nodes = 0;
     next->route([&]<Piece p>{
         const int h = b.max_y();
-        const int h1 = BoardBase::height_target(h + p.h_gen());
-        const int h2 = BoardBase::height_target(h + p.h_place());
-        assert(h1 <= h2);
-
-        // Experimentally, routing h1 + h1/h2 > h2 > h1 + h2
+        const int h1 = BoardBase::height_target(h + p.h_place());
         BoardBase::route(h1, [&]<int H1>{
             assert(Board<H1>::is_ok_y_local(h));
             auto b1 = b.template cast_height<H1>();
             MoveList<Rules, p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y, [[maybe_unused]] const SpinType s) {
-                // Difficult to abstract this into a single routing lambda without hurting performance
-                // The compiler becomes blind to this easy-to-predict branch, and forcing inline breaks more things
-                // if (H1 == h2) { // <- This is consistently slower (~2% nps) even though H1 IS h1
-                if (h1 == h2) {
-                    auto b2 = b1;
-                    b2.template do_move<p, r>(x, y);
-                    Board nextBoard = b2.template cast_height<BoardBase::H>();
-                    nodes += perft(nextBoard, next + 1, depth - 1);
-                } else {
-                    assert(h1 < h2);
-                    BoardBase::route(h2, [&]<int H2>{
-                        assert(Board<H2>::is_ok_y_local(h));
-                        auto b2 = b1.template cast_height<H2>();
-                        b2.template do_move<p, r>(x, y);
-                        Board nextBoard = b2.template cast_height<BoardBase::H>();
-                        nodes += perft(nextBoard, next + 1, depth - 1);
-                    });
-                }
+                auto b2 = b1;
+                b2.template do_move<p, r>(x, y);
+                Board nextBoard = b2.template cast_height<BoardBase::H>();
+                nodes += perft(nextBoard, next + 1, depth - 1);
             });
         });
     });

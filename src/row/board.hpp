@@ -154,7 +154,7 @@ struct Board {
 
     // static constexpr Bitboard all() {
     static consteval Bitboard all() {
-        Bitboard b{};
+        Bitboard b;
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((b[i] = Tall), ...);
         }(std::make_index_sequence<Tn>());
@@ -217,7 +217,7 @@ struct Board {
 
         constexpr auto shift_helper = [&]<int ddx, int ddy>(Bitboard bb) {
             if constexpr (ddy == Tlines || ddy == -Tlines)
-                bb = Bitboard{};
+                return Bitboard{};
             else if constexpr (ddy < 0)
                 bb >>= -ddy * W;
             else if constexpr (ddy > 0)
@@ -330,7 +330,7 @@ struct Board {
             ((prefix[i + 1] = prefix[i] + std::popcount(lines.data[i])), ...);
         }(std::make_index_sequence<Tn - 1>());
 
-        Bitboard cleared{};
+        Bitboard cleared;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (([&]{
                 const T ld = data[i];

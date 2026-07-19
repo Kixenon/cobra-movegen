@@ -35,14 +35,14 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard operator~() const {
         if consteval {
-            Bitboard r{};
+            Bitboard r;
             [&]<size_t... i>(std::index_sequence<i...>) {
                 ((r[i] = static_cast<T>(~data[i])), ...);
             }(std::make_index_sequence<N>());
             return r;
         }
 
-        Bitboard r{};
+        Bitboard r;
         constexpr size_t blocks = N / detail::simd_lanes;
         constexpr size_t tail_start = blocks * detail::simd_lanes;
         [&]<size_t... i>(std::index_sequence<i...>) {

@@ -122,30 +122,29 @@ struct Board {
         if constexpr (dx == 0 && dy == 0)
             return *this;
 
-        Board b{};
-
+        Bitboard b{};
         if constexpr (dx >= 0) {
             [&]<size_t... i>(std::index_sequence<i...>) {
                 if constexpr (dy > 0)
-                    ((b.data[i + dx] = static_cast<T>(data[i] << dy)), ...);
+                    ((b[i + dx] = static_cast<T>(data[i] << dy)), ...);
                 else if constexpr (dy < 0)
-                    ((b.data[i + dx] = static_cast<T>(data[i] >> -dy)), ...);
+                    ((b[i + dx] = static_cast<T>(data[i] >> -dy)), ...);
                 else
-                    ((b.data[i + dx] = data[i]), ...);
+                    ((b[i + dx] = data[i]), ...);
             }(std::make_index_sequence<W - dx>());
         } else {
             constexpr int adx = -dx;
             [&]<size_t... i>(std::index_sequence<i...>) {
                 if constexpr (dy > 0)
-                    ((b.data[i] = static_cast<T>(data[i + adx] << dy)), ...);
+                    ((b[i] = static_cast<T>(data[i + adx] << dy)), ...);
                 else if constexpr (dy < 0)
-                    ((b.data[i] = static_cast<T>(data[i + adx] >> -dy)), ...);
+                    ((b[i] = static_cast<T>(data[i + adx] >> -dy)), ...);
                 else
-                    ((b.data[i] = data[i + adx]), ...);
+                    ((b[i] = data[i + adx]), ...);
             }(std::make_index_sequence<W - adx>());
         }
 
-        return b;
+        return Board{b};
     }
 
     constexpr bool any() const {
@@ -161,7 +160,7 @@ struct Board {
     }
 
     constexpr Board operator~() const {
-        Board result{};
+        Board result;
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((result.data[i] = Tall & ~data[i]), ...);
         }(std::make_index_sequence<W>());

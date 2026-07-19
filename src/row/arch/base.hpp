@@ -9,7 +9,7 @@ namespace Cobra::Arch {
 
 template <typename T, size_t N>
 struct BitboardBase {
-    std::array<T, N> data{};
+    std::array<T, N> data;
 
     constexpr T& operator[](size_t i) {
         return data[i];

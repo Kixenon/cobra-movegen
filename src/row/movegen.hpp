@@ -79,13 +79,13 @@ private:
                     [&]<size_t... i>(std::index_sequence<i...>) {
                         ([&]<int shift>{
                             if constexpr (ceiling >= shift)
-                                surface |= surface.template shifted<0, -shift>();
+                                surface |= surface.template shift<0, -shift>();
                         }.template operator()<1 << i>(), ...);
                     }(std::make_index_sequence<5>()); // 1 - 16. 32 isn't needed since that will be routed to slow init
 
                     search[r] = ~surface;
-                    search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc]; // Quick tucks
-                    search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
+                    search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc]; // Quick tucks
+                    search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
                 }()), ...);
             }(std::make_index_sequence<cSize>());
 
@@ -136,9 +136,9 @@ private:
                     // Shifts
                     {
                         while (true) {
-                            const BoardT temp = ( search[r].template shifted<-1,  0>()
-                                                | search[r].template shifted< 1,  0>()
-                                                | search[r].template shifted< 0, -1>() ) & unsearched[r];
+                            const BoardT temp = ( search[r].template shift<-1,  0>()
+                                                | search[r].template shift< 1,  0>()
+                                                | search[r].template shift< 0, -1>() ) & unsearched[r];
 
                             if (!temp.any())
                                 break;
@@ -187,18 +187,18 @@ private:
                                 (([&]{
                                     const int x = i + 1;
                                     if constexpr (env[0] <= -x)
-                                        probe |= probe.template shifted<-x, 0>();
+                                        probe |= probe.template shift<-x, 0>();
                                     if constexpr (env[1] >= x)
-                                        probe |= probe.template shifted<x, 0>();
+                                        probe |= probe.template shift<x, 0>();
                                 }()), ...);
                             }(std::make_index_sequence<2>());
                             [&]<size_t... i>(std::index_sequence<i...>) {
                                 (([&]{
                                     const int y = i + 1;
                                     if constexpr (env[2] <= -y)
-                                        probe |= probe.template shifted<0, -y>();
+                                        probe |= probe.template shift<0, -y>();
                                     if constexpr (env[3] >= y)
-                                        probe |= probe.template shifted<0, y>();
+                                        probe |= probe.template shift<0, y>();
                                 }()), ...);
                             }(std::make_index_sequence<2>());
                         }
@@ -219,9 +219,9 @@ private:
                             [&]<size_t... i>(std::index_sequence<i...>) {
                                 ([&]{
                                     constexpr auto kick = kickTable[r][i] + off;
-                                    result |= temp.template shifted<kick.x, kick.y>();
+                                    result |= temp.template shift<kick.x, kick.y>();
                                     if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~(usable[r1c].template shifted<-kick.x, -kick.y>());
+                                        temp &= ~(usable[r1c].template shift<-kick.x, -kick.y>());
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 
@@ -323,13 +323,13 @@ private:
                     [&]<size_t... i>(std::index_sequence<i...>) {
                         ([&]<int shift> {
                             if constexpr (ceiling >= shift)
-                                surface |= surface.template shifted<0, -shift>();
+                                surface |= surface.template shift<0, -shift>();
                         }.template operator()<1 << i>(), ...);
                     }(std::make_index_sequence<5>());
 
                     search[r] = ~surface;
-                    search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
-                    search[r] |= (search[r].template shifted<-1, 0>() | search[r].template shifted<1, 0>()) & usable[rc];
+                    search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
+                    search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
 
                     spinReach[SpinType::NONE][rs] = search[r];
                 }()), ...);
@@ -356,9 +356,9 @@ private:
                     {
                         assert((search[r] & usable[r]) == search[r]);
                         while (true) {
-                            BoardT temp = ( search[r].template shifted<-1,  0>()
-                                          | search[r].template shifted< 1,  0>()
-                                          | search[r].template shifted< 0, -1>() );
+                            BoardT temp = ( search[r].template shift<-1,  0>()
+                                          | search[r].template shift< 1,  0>()
+                                          | search[r].template shift< 0, -1>() );
 
                             spinReach[SpinType::NONE][r] |= temp;
                             temp &= unsearched[r];
@@ -387,7 +387,7 @@ private:
                             [&]<size_t... i>(std::index_sequence<i...>) {
                                 ([&] {
                                     constexpr auto kick = kickTable[r][i] + off;
-                                    const BoardT m = temp.template shifted<kick.x, kick.y>();
+                                    const BoardT m = temp.template shift<kick.x, kick.y>();
                                     result |= m;
 
                                     const BoardT spun = m & spins;
@@ -400,7 +400,7 @@ private:
                                     }
 
                                     if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~(usable[r1].template shifted<-kick.x, -kick.y>());
+                                        temp &= ~(usable[r1].template shift<-kick.x, -kick.y>());
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 

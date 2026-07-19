@@ -192,7 +192,10 @@ struct Board {
     }
 
     template <int dx, int dy>
-    constexpr Board& shift() {
+    constexpr Board shift() const {
+        if constexpr (dx >= W || dx <= -W || dy >= H || dy <= -H)
+            return {};
+
         if constexpr (dx == 0 && dy == 0)
             return *this;
 
@@ -228,38 +231,34 @@ struct Board {
             return bb;
         };
 
+        Bitboard b;
         if constexpr (dy == 0) {
             if constexpr (dx > 0)
-                data <<= dx;
+                b = data << dx;
             else if constexpr (dx < 0)
-                data >>= -dx;
+                b = data >> -dx;
+            else
+                b = data;
         } else if constexpr (dy > 0) {
             constexpr int pad = (dy - 1) / Tlines;
             constexpr int shift = ((dy - 1) % Tlines) + 1;
             auto unmoved = split_helper.template operator()<pad, true>(shift_helper.template operator()<dx, shift>(data));
             auto moved = split_helper.template operator()<pad + 1, true>(shift_helper.template operator()<dx, shift - Tlines>(data));
-            data = unmoved | moved;
+            b = unmoved | moved;
         } else if constexpr (dy < 0) {
             constexpr int pad = (-dy - 1) / Tlines;
             constexpr int shift = ((-dy - 1) % Tlines) + 1;
             auto unmoved = split_helper.template operator()<pad, false>(shift_helper.template operator()<dx, -shift>(data));
             auto moved = split_helper.template operator()<pad + 1, false>(shift_helper.template operator()<dx, Tlines - shift>(data));
-            data = unmoved | moved;
+            b = unmoved | moved;
         }
 
         if constexpr (dx != 0)
-            data &= shift_mask<dx>();
+            b &= shift_mask<dx>();
         else if constexpr (dy != 0)
-            data &= all();
+            b &= all();
 
-        return *this;
-    }
-
-    template <int dx, int dy>
-    constexpr Board shifted() const {
-        Board result = *this;
-        result.shift<dx, dy>();
-        return result;
+        return Board{b};
     }
 
     constexpr bool any() const {

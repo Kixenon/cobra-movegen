@@ -21,13 +21,11 @@ endif
 BUILD_DIR = bin
 OBJ_DIR = $(BUILD_DIR)/obj
 
-LIB_SRCS = $(wildcard src/*.cpp)
 APP_SRCS = $(wildcard apps/*.cpp)
 APP_NAMES = $(basename $(notdir $(APP_SRCS)))
 APP_BINS = $(patsubst %, $(BUILD_DIR)/%, $(APP_NAMES))
-LIB_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(LIB_SRCS))
 APP_OBJS = $(patsubst %.cpp, $(OBJ_DIR)/%.o, $(APP_SRCS))
-DEPS = $(LIB_OBJS:.o=.d) $(APP_OBJS:.o=.d)
+DEPS = $(APP_OBJS:.o=.d)
 
 .PHONY: all clean help $(APP_NAMES)
 
@@ -35,7 +33,7 @@ all: help
 
 $(APP_NAMES): %: $(BUILD_DIR)/%
 
-$(BUILD_DIR)/%: clean $(OBJ_DIR)/apps/%.o $(LIB_OBJS)
+$(BUILD_DIR)/%: clean $(OBJ_DIR)/apps/%.o
 	@mkdir -p $(dir $@)
 	$(CXX) $(FLAGS) $(filter-out clean,$^) -o $@
 	@echo "Built $@"

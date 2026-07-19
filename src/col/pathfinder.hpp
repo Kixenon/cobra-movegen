@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../header.hpp"
+#include "../gen.hpp"
 #include "../ruleset.hpp"
 #include "board.hpp"
-#include "gen.hpp"
 
 #include <algorithm>
 #include <array>

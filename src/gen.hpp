@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../header.hpp"
-#include "../ruleset.hpp"
+#include "header.hpp"
+#include "ruleset.hpp"
 
 #include <array>
 #include <cassert>

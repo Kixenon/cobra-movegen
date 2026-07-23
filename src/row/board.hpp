@@ -463,11 +463,9 @@ struct Board {
     }
 
     constexpr int popcount() const {
-        int result = 0;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result += std::popcount(data[i])), ...);
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return (std::popcount(data[i]) + ...);
         }(std::make_index_sequence<Tn>());
-        return result;
     }
 
     template <typename Fn>

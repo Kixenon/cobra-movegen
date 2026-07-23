@@ -201,9 +201,9 @@ struct Board {
     }
 
     constexpr T line_clears() const {
-        return static_cast<T>([&]<size_t... i>(std::index_sequence<i...>) {
-            return (data[i] & ...);
-        }(std::make_index_sequence<W>()));
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return static_cast<T>((data[i] & ...));
+        }(std::make_index_sequence<W>());
     }
 
     constexpr void clear_lines(T lines) {
@@ -263,7 +263,7 @@ struct Board {
     constexpr Board<H1> cast_height() const {
         static_assert(BoardBase::is_ok_h(H1));
 
-        Board<H1> result{};
+        Board<H1> result;
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((result.data[i] = static_cast<Board<H1>::T>(data[i])), ...);
         }(std::make_index_sequence<W>());
@@ -271,19 +271,15 @@ struct Board {
     }
 
     constexpr int max_y() const {
-        T tmp = 0;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((tmp |= data[i]), ...);
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return std::bit_width((data[i] | ...));
         }(std::make_index_sequence<W>());
-        return std::bit_width(tmp);
     }
 
     constexpr int popcount() const {
-        int result = 0;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result += std::popcount(data[i])), ...);
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return (std::popcount(data[i]) + ...);
         }(std::make_index_sequence<W>());
-        return result;
     }
 
     template <typename Fn>

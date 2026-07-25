@@ -272,7 +272,7 @@ struct Board {
 
     constexpr int max_y() const {
         return [&]<size_t... i>(std::index_sequence<i...>) {
-            return std::bit_width((data[i] | ...));
+            return std::bit_width(static_cast<T>((data[i] | ...)));
         }(std::make_index_sequence<W>());
     }
 

@@ -30,6 +30,7 @@ struct Rules : RulesetBase {
     static constexpr int SPAWN_Y = 19;
     static constexpr bool ENABLE_180 = false;
 };
+
 // struct Rules : RulesetBase {
 //     static constexpr Policy::KickRule KICKS = Policy::KickRule::SRS_PLUS;
 //     static constexpr Policy::SpinRule SPINS = Policy::SpinRule::TSPIN;
@@ -46,7 +47,7 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
             const int h = b.max_y();
             const int h1 = BoardBase::height_target(h + p.h_gen());
             return BoardBase::route(h1, [&]<int H>{
-                auto b1 = b.template cast_height<H>();
+                const auto b1 = b.template cast_height<H>();
                 return static_cast<uint64_t>(MoveList<Rules, p, Board<H>>(b1, h).popcount());
             });
         });
@@ -57,12 +58,24 @@ uint64_t perft(Board<>& b, const Piece* next, unsigned depth) {
         const int h1 = BoardBase::height_target(h + p.h_place());
         BoardBase::route(h1, [&]<int H1>{
             assert(Board<H1>::is_ok_y_local(h));
-            auto b1 = b.template cast_height<H1>();
+            const auto b1 = b.template cast_height<H1>();
             MoveList<Rules, p, Board<H1>>(b1, h).for_each_move([&]<Rotation r>(const int x, const int y, [[maybe_unused]] const SpinType s) {
                 auto b2 = b1;
                 b2.template do_move<p, r>(x, y);
-                Board nextBoard = b2.template cast_height<BoardBase::H>();
-                nodes += perft(nextBoard, next + 1, depth - 1);
+
+                if (depth == 2) {
+                    (next + 1)->route([&]<Piece p2>{
+                        const int temp = b2.max_y();
+                        const int h2 = BoardBase::height_target(temp + p2.h_gen());
+                        BoardBase::route(h2, [&]<int H2>{
+                            const Board b3 = b2.template cast_height<H2>();
+                            nodes += static_cast<uint64_t>(MoveList<Rules, p2, Board<H2>>(b3, temp).popcount());
+                        });
+                    });
+                } else {
+                    Board nextBoard = b2.template cast_height<BoardBase::H>();
+                    nodes += perft(nextBoard, next + 1, depth - 1);
+                }
             });
         });
     });

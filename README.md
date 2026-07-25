@@ -19,14 +19,15 @@ Currently, it runs perft from an empty position, though this can be modified as 
 - Full movegen (non-infinite SDF)
 - Canonical, deduplicated moves
 - Move input pathfinding with finesse
+- Column and row-major backends
+- SIMD, TMP, and aggressive pruning
+- Single-threaded internals, trivially parallelizable
 - Header-only library
-
-Cobra Movegen achieves high single-thread performance through data-level parallelism (register-friendly wide operations), compile-time template specialization, and aggressive search-space pruning.
 
 Benchmarked on an M2 MacBook Pro (results may vary):
 ```bash
-./bin/bench IOLJSZT
-Depth: 7 Nodes: 2647076135 Time: 5070ms NPS: 522002787
+make bench backend=col && ./bin/bench IOLJSZT
+Depth: 7 Nodes: 2647076135 Time: 4455ms NPS: 594047606
 ```
 
 ## Usage

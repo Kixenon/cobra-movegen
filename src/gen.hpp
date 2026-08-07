@@ -57,6 +57,14 @@ constexpr Rotation canonical_r(const Rotation r) {
 
 template <Piece p>
 constexpr Coordinates canonical_offset(const Rotation r) {
+    if constexpr (p == Piece::O) {
+        if (r == Rotation::EAST)
+            return {0, 1};
+        if (r == Rotation::SOUTH)
+            return {1, 1};
+        if (r == Rotation::WEST)
+            return {1, 0};
+    }
     if constexpr (p == Piece::I) {
         if (r == Rotation::SOUTH)
             return {1, 0};

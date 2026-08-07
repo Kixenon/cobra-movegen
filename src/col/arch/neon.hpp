@@ -11,7 +11,7 @@
 
 namespace Cobra::Arch {
 
-namespace detail {
+namespace Detail {
 
 template <typename T>
 struct NeonVec;
@@ -120,7 +120,7 @@ constexpr neon_t<T> neon_shr(neon_t<T> v, int bits) {
         return vshlq_u64(v, vdupq_n_s64(static_cast<int64_t>(-bits)));
 }
 
-} // namespace detail
+} // namespace Detail
 
 template <typename T, size_t N>
 struct Bitboard : BitboardBase<T, N> {
@@ -136,10 +136,10 @@ struct Bitboard : BitboardBase<T, N> {
         }
 
         Bitboard r;
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(r.data, i, detail::neon_not<T>(detail::load_block<T>(data, i)))), ...);
+            ((Detail::store_block<T>(r.data, i, Detail::neon_not<T>(Detail::load_block<T>(data, i)))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((r.data[tail_start + i] = static_cast<T>(~data[tail_start + i])), ...);
@@ -155,10 +155,10 @@ struct Bitboard : BitboardBase<T, N> {
             return *this;
         }
 
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(data, i, detail::neon_or<T>(detail::load_block<T>(data, i), detail::load_block<T>(other.data, i)))), ...);
+            ((Detail::store_block<T>(data, i, Detail::neon_or<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i)))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[tail_start + i] |= other[tail_start + i]), ...);
@@ -174,10 +174,10 @@ struct Bitboard : BitboardBase<T, N> {
             return *this;
         }
 
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(data, i, detail::neon_and<T>(detail::load_block<T>(data, i), detail::load_block<T>(other.data, i)))), ...);
+            ((Detail::store_block<T>(data, i, Detail::neon_and<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i)))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[tail_start + i] &= other[tail_start + i]), ...);
@@ -193,10 +193,10 @@ struct Bitboard : BitboardBase<T, N> {
             return *this;
         }
 
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(data, i, detail::neon_xor<T>(detail::load_block<T>(data, i), detail::load_block<T>(other.data, i)))), ...);
+            ((Detail::store_block<T>(data, i, Detail::neon_xor<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i)))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[tail_start + i] ^= other[tail_start + i]), ...);
@@ -214,10 +214,10 @@ struct Bitboard : BitboardBase<T, N> {
             return *this;
         }
 
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(data, i, detail::neon_shl<T>(detail::load_block<T>(data, i), bits))), ...);
+            ((Detail::store_block<T>(data, i, Detail::neon_shl<T>(Detail::load_block<T>(data, i), bits))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[tail_start + i] = static_cast<T>(data[tail_start + i] << bits)), ...);
@@ -235,10 +235,10 @@ struct Bitboard : BitboardBase<T, N> {
             return *this;
         }
 
-        constexpr size_t blocks = N / detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * detail::neon_lanes<T>;
+        constexpr size_t blocks = N / Detail::neon_lanes<T>;
+        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((detail::store_block<T>(data, i, detail::neon_shr<T>(detail::load_block<T>(data, i), bits))), ...);
+            ((Detail::store_block<T>(data, i, Detail::neon_shr<T>(Detail::load_block<T>(data, i), bits))), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((data[tail_start + i] = static_cast<T>(data[tail_start + i] >> bits)), ...);

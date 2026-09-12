@@ -66,34 +66,27 @@ private:
 
             // Fast init
             [&]<size_t... rs>(std::index_sequence<rs...>) {
-                (([&]{
+                ([&]{
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
 
-                    [&]<size_t... xs>(std::index_sequence<xs...>) {
-                        (([&]{
-                            using CT = BoardT::T;
-                            const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
-                            const CT fill = BoardT::bb_low(std::bit_width(blocked));
-                            search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
-                        }()), ...);
-                    }(std::make_index_sequence<BoardT::W>());
+                    search[r] = usable[rc].top_ray();
 
                     search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc]; // Quick tucks
                     search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
-                }()), ...);
+                }(), ...);
             }(std::make_index_sequence<cSize>());
 
             if constexpr (Gen::group3(p)) {
                 [&]<size_t... rs>(std::index_sequence<rs...>) {
-                    (([&]{
+                    ([&]{
                         constexpr Rotation r(rs);
                         constexpr Rotation r1 = Gen::rotate<Gen::Direction::CW>(r);
                         constexpr Rotation r2 = Gen::rotate<Gen::Direction::CCW>(r);
                         static_assert(r == Gen::canonical_r<p>(r));
 
                         search[r] |= (search[r1] | search[r2]) & usable[r];
-                    }()), ...);
+                    }(), ...);
                 }(std::make_index_sequence<cSize>());
             }
 
@@ -168,7 +161,7 @@ private:
                                     constexpr auto kick = kickTable[r][i] + off;
                                     result |= temp.template shift<kick.x, kick.y>();
                                     if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~(usable[r1c].template shift<-kick.x, -kick.y>());
+                                        temp &= ~usable[r1c].template shift<-kick.x, -kick.y>();
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 
@@ -262,24 +255,17 @@ private:
 
             // Fast init
             [&]<size_t... rs>(std::index_sequence<rs...>) {
-                (([&] {
+                ([&] {
                     constexpr Rotation r(rs);
                     constexpr Rotation rc = Gen::canonical_r<p>(r);
 
-                    [&]<size_t... xs>(std::index_sequence<xs...>) {
-                        (([&]{
-                            using CT = BoardT::T;
-                            const CT blocked = static_cast<CT>(BoardT::Tall & ~usable[rc].data[xs]);
-                            const CT fill = BoardT::bb_low(std::bit_width(blocked));
-                            search[r].data[xs] = static_cast<CT>(BoardT::Tall ^ fill);
-                        }()), ...);
-                    }(std::make_index_sequence<BoardT::W>());
+                    search[r] = usable[rc].top_ray();
 
                     search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
                     search[r] |= (search[r].template shift<-1, 0>() | search[r].template shift<1, 0>()) & usable[rc];
 
                     spinReach[SpinType::NONE][rs] = search[r];
-                }()), ...);
+                }(), ...);
             }(std::make_index_sequence<cSize>());
         } while (false);
 
@@ -347,7 +333,7 @@ private:
                                     }
 
                                     if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~(usable[r1].template shift<-kick.x, -kick.y>());
+                                        temp &= ~usable[r1].template shift<-kick.x, -kick.y>();
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 
@@ -374,12 +360,12 @@ private:
         }
 
         [&]<size_t... ss>(std::index_sequence<ss...>) {
-            (([&] {
+            ([&] {
                 constexpr auto s = SpinType(ss);
                 [&]<size_t... rs>(std::index_sequence<rs...>) {
                     ((moves[s][rs] = candidates[rs] & spinReach[s][rs]), ...);
                 }(std::make_index_sequence<cSize>());
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<sMul>());
     }
 
@@ -394,12 +380,12 @@ public:
     constexpr int popcount() const {
         int result = 0;
         [&]<size_t... ss>(std::index_sequence<ss...>) {
-            (([&] {
+            ([&] {
                 constexpr auto s = SpinType(ss);
                 [&]<size_t... rs>(std::index_sequence<rs...>) {
                     ((result += moves[s][rs].popcount()), ...);
                 }(std::make_index_sequence<cSize>());
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<sMul>());
         return result;
     }
@@ -407,14 +393,14 @@ public:
     template <typename Fn>
     void for_each_move(Fn&& fn) const {
         [&]<size_t... ss>(std::index_sequence<ss...>) {
-            (([&] {
+            ([&] {
                 constexpr auto s = SpinType(ss);
                 [&]<size_t... rs>(std::index_sequence<rs...>) {
-                    ((moves[s][rs].for_each_set_bit([&](int x, int y) {
+                    (moves[s][rs].for_each_set_bit([&](int x, int y) {
                         fn.template operator()<Rotation(rs)>(x, y, s);
-                    })), ...);
+                    }), ...);
                 }(std::make_index_sequence<cSize>());
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<sMul>());
     }
 };

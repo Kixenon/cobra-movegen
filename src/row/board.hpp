@@ -99,12 +99,12 @@ template <Piece p>
 consteval auto placement_table() {
     std::array<std::array<std::pair<T, T>, Tlines>, Rotation::size> out{};
     [&]<size_t... rs>(std::index_sequence<rs...>) {
-        (([&]{
+        ([&]{
             constexpr Rotation r(rs);
             [&]<size_t... ys>(std::index_sequence<ys...>) {
                 ((out[r][ys] = placement_mask<p, r>(ys)), ...);
             }(std::make_index_sequence<Tlines>());
-        }()), ...);
+        }(), ...);
     }(std::make_index_sequence<Rotation::size>());
     return out;
 }
@@ -332,14 +332,14 @@ struct Board {
 
         Bitboard cleared;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
+            ([&]{
                 const T ld = data[i];
                 const T ll = lines.data[i];
                 T packed = 0;
                 int dest = 0;
 
                 [&]<size_t... r>(std::index_sequence<r...>) {
-                    (([&]{
+                    ([&]{
                         constexpr int src = r * W;
                         constexpr int src2 = src + (W - 1);
                         constexpr T rowMask = (static_cast<T>(1) << W) - 1;
@@ -347,20 +347,20 @@ struct Board {
                             packed |= ((ld >> src) & rowMask) << dest;
                             dest += W;
                         }
-                    }()), ...);
+                    }(), ...);
                 }(std::make_index_sequence<Tlines>());
 
                 cleared[i] = packed;
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<Tn>());
 
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
+            ([&]{
                 constexpr int dest = static_cast<int>(i);
                 T result = 0;
 
                 [&]<size_t... j>(std::index_sequence<j...>) {
-                    (([&]{
+                    ([&]{
                         constexpr int src = static_cast<int>(j);
 
                         if constexpr (src >= dest) {
@@ -370,11 +370,11 @@ struct Board {
                             else if (relative < 0 && relative > -Tlines)
                                 result |= cleared[src] >> (-relative * W);
                         }
-                    }()), ...);
+                    }(), ...);
                 }(std::make_index_sequence<Tn>());
 
                 data[dest] = result & Tall;
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<Tn>());
     }
 
@@ -418,7 +418,7 @@ struct Board {
         header = "\n +";
         for (int i = 0; i < W; ++i)
             header += "---+";
-        header += "\n";
+        header += '\n';
 
         output += header;
         auto output_row = [&]<int y>{
@@ -471,7 +471,7 @@ struct Board {
     template <typename Fn>
     void for_each_set_bit(Fn&& fn) const {
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
+            ([&]{
                 T bits = data[i];
                 while (bits) {
                     const int idx = std::countr_zero(bits);
@@ -480,7 +480,7 @@ struct Board {
                     fn(x, y);
                     bits &= bits - 1;
                 }
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<Tn>());
     }
 };

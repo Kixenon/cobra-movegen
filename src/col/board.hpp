@@ -151,6 +151,10 @@ struct Board {
         return data.any();
     }
 
+    constexpr Board top_ray() const {
+        return Board{data.top_ray(Tall)};
+    }
+
     constexpr bool operator==(const Board& other) const {
         return data == other.data;
     }
@@ -246,7 +250,7 @@ struct Board {
         header = "\n +";
         for (int i = 0; i < W; ++i)
             header += "---+";
-        header += "\n";
+        header += '\n';
 
         output += header;
         for (int y = lines - 1; y >= 0; --y) {
@@ -285,14 +289,14 @@ struct Board {
     template <typename Fn>
     void for_each_set_bit(Fn&& fn) const {
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
+            ([&]{
                 constexpr int x = static_cast<int>(i);
                 T bits = data[i];
                 while (bits) {
                     fn(x, std::countr_zero(bits));
                     bits &= bits - 1;
                 }
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<W>());
     }
 };

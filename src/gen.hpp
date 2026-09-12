@@ -95,16 +95,16 @@ constexpr auto usable_map(const BoardT& b) {
         result[r] = temp;
 
         [&]<size_t... i>(std::index_sequence<i...>) {
-            (([&]{
+            ([&]{
                 if constexpr (pc[i].y > 0) // Don't kick against ceiling
                     result[r] &= (~b.template shift<0, -pc[i].y>()).template shift<-pc[i].x, 0>();
                 else
                     result[r] &= temp.template shift<-pc[i].x, -pc[i].y>();
-            }()), ...);
+            }(), ...);
         }(std::make_index_sequence<3>());
     };
     [&]<size_t... rs>(std::index_sequence<rs...>) {
-        ((init.template operator()<Rotation(rs)>()), ...);
+        (init.template operator()<Rotation(rs)>(), ...);
     }(std::make_index_sequence<result.size()>());
 
     return result;

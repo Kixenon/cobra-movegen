@@ -38,11 +38,7 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard operator~() const {
         if consteval {
-            Bitboard r;
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((r[i] = static_cast<T>(~data[i])), ...);
-            }(std::make_index_sequence<N>());
-            return r;
+            return Bitboard{BitboardBase<T, N>::operator~()};
         }
 
         Bitboard r;
@@ -59,9 +55,7 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator|=(const Bitboard& other) {
         if consteval {
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] |= other[i]), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator|=(other);
             return *this;
         }
 
@@ -78,9 +72,7 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator&=(const Bitboard& other) {
         if consteval {
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] &= other[i]), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator&=(other);
             return *this;
         }
 
@@ -97,9 +89,7 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator^=(const Bitboard& other) {
         if consteval {
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] ^= other[i]), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator^=(other);
             return *this;
         }
 
@@ -116,9 +106,7 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator+=(const Bitboard& other) {
         if consteval {
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] += other[i]), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator+=(other);
             return *this;
         }
 
@@ -136,10 +124,7 @@ struct Bitboard : BitboardBase<T, N> {
     constexpr Bitboard& operator<<=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            Bitboard in = *this;
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] = static_cast<T>(in[i] << bits)), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator<<=(bits);
             return *this;
         }
 
@@ -157,10 +142,7 @@ struct Bitboard : BitboardBase<T, N> {
     constexpr Bitboard& operator>>=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            Bitboard in = *this;
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ((data[i] = static_cast<T>(in[i] >> bits)), ...);
-            }(std::make_index_sequence<N>());
+            BitboardBase<T, N>::operator>>=(bits);
             return *this;
         }
 

@@ -158,7 +158,7 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
                             l.x = m.x + kick.x;
                             l.y = m.y + kick.y;
 
-                            if (!is_ok_x(l.x) || !is_ok_y(l.y) || !(usable[r1c].get(l.x, l.y)))
+                            if (!is_ok_x(l.x) || !is_ok_y(l.y) || !usable[r1c].get(l.x, l.y))
                                 return true;
 
                             if constexpr (checkTspin) {

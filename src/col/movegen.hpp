@@ -5,7 +5,6 @@
 #include "../ruleset.hpp"
 
 #include <array>
-#include <bit>
 #include <bitset>
 #include <cassert>
 #include <cstddef>

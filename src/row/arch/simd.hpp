@@ -11,149 +11,131 @@
 
 namespace Cobra::Arch {
 
-namespace Detail {
-
-template <size_t N>
-inline constexpr size_t simd_lanes = N >= 4 ? 4 : 2;
-
-template <size_t N>
-using simd_block_t = std::experimental::fixed_size_simd<uint64_t, simd_lanes<N>>;
-
-template <size_t N>
-inline simd_block_t<N> load_block(const std::array<uint64_t, N>& data, size_t block) {
-    return simd_block_t<N>(data.data() + (block * simd_lanes<N>), std::experimental::element_aligned);
-}
-
-template <size_t N>
-inline void store_block(std::array<uint64_t, N>& data, size_t block, const simd_block_t<N>& val) {
-    val.copy_to(data.data() + (block * simd_lanes<N>), std::experimental::element_aligned);
-}
-
-} // namespace Detail
-
 template <typename T, size_t N>
 struct Bitboard : BitboardBase<T, N> {
-    using BitboardBase<T, N>::data;
-    using BitboardBase<T, N>::operator=;
+    using Base = BitboardBase<T, N>;
+    using Base::data;
+    using Base::operator=;
 
+private:
+    using SimdBlock = std::experimental::fixed_size_simd<uint64_t, lanes>;
+    static constexpr size_t lanes = N >= 4 ? 4 : 2;
+    static constexpr size_t blocks = N / lanes;
+    static constexpr size_t tailStart = blocks * lanes;
+
+    static SimdBlock load_block(const std::array<uint64_t, N>& values, size_t block) {
+        return SimdBlock(values.data() + (block * lanes), std::experimental::element_aligned);
+    }
+
+    static void store_block(std::array<uint64_t, N>& values, size_t block, const SimdBlock& val) {
+        val.copy_to(values.data() + (block * lanes), std::experimental::element_aligned);
+    }
+
+public:
     constexpr Bitboard operator~() const {
         if consteval {
-            return Bitboard{BitboardBase<T, N>::operator~()};
+            return Bitboard{Base::operator~()};
         }
 
         Bitboard r;
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(r.data, i, ~Detail::load_block<N>(data, i))), ...);
+            (store_block(r.data, i, ~load_block(data, i)), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((r.data[tail_start + i] = static_cast<T>(~data[tail_start + i])), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((r.data[tailStart + i] = static_cast<T>(~data[tailStart + i])), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return r;
     }
 
     constexpr Bitboard& operator|=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator|=(other);
+            Base::operator|=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) | Detail::load_block<N>(other.data, i))), ...);
+            (store_block(data, i, load_block(data, i) | load_block(other.data, i)), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] |= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] |= other[tailStart + i]), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 
     constexpr Bitboard& operator&=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator&=(other);
+            Base::operator&=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) & Detail::load_block<N>(other.data, i))), ...);
+            (store_block(data, i, load_block(data, i) & load_block(other.data, i)), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] &= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] &= other[tailStart + i]), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 
     constexpr Bitboard& operator^=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator^=(other);
+            Base::operator^=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) ^ Detail::load_block<N>(other.data, i))), ...);
+            (store_block(data, i, load_block(data, i) ^ load_block(other.data, i)), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] ^= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] ^= other[tailStart + i]), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 
     constexpr Bitboard& operator+=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator+=(other);
+            Base::operator+=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) + Detail::load_block<N>(other.data, i))), ...);
+            (store_block(data, i, load_block(data, i) + load_block(other.data, i)), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] += other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] += other[tailStart + i]), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 
     constexpr Bitboard& operator<<=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            BitboardBase<T, N>::operator<<=(bits);
+            Base::operator<<=(bits);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) << bits)), ...);
+            (store_block(data, i, load_block(data, i) << bits), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] = static_cast<T>(data[tail_start + i] << bits)), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] = static_cast<T>(data[tailStart + i] << bits)), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 
     constexpr Bitboard& operator>>=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            BitboardBase<T, N>::operator>>=(bits);
+            Base::operator>>=(bits);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::simd_lanes<N>;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes<N>;
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<N>(data, i, Detail::load_block<N>(data, i) >> bits)), ...);
+            (store_block(data, i, load_block(data, i) >> bits), ...);
         }(std::make_index_sequence<blocks>());
         [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] = static_cast<T>(data[tail_start + i] >> bits)), ...);
-        }(std::make_index_sequence<N - tail_start>());
+            ((data[tailStart + i] = static_cast<T>(data[tailStart + i] >> bits)), ...);
+        }(std::make_index_sequence<N - tailStart>());
         return *this;
     }
 

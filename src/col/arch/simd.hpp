@@ -2,140 +2,54 @@
 
 #include "base.hpp"
 
-#include <array>
-#include <cassert>
 #include <cstddef>
 #include <experimental/simd>
-#include <utility>
 
 namespace Cobra::Arch {
 
-namespace Detail {
-
-constexpr size_t simd_lanes = 8;
-
 template <typename T>
-using simd_block_t = std::experimental::fixed_size_simd<T, simd_lanes>;
+struct SimdBackend {
+    using Block = std::experimental::fixed_size_simd<T, 8>;
+    static constexpr size_t lanes = 8;
+    static constexpr bool hasClz = false;
 
-template <typename T, size_t N>
-constexpr simd_block_t<T> load_block(const std::array<T, N>& data, size_t block) {
-    return simd_block_t<T>(data.data() + (block * simd_lanes), std::experimental::element_aligned);
-}
-
-template <typename T, size_t N>
-constexpr void store_block(std::array<T, N>& data, size_t block, const simd_block_t<T>& val) {
-    val.copy_to(data.data() + (block * simd_lanes), std::experimental::element_aligned);
-}
-
-} // namespace Detail
-
-template <typename T, size_t N>
-struct Bitboard : BitboardBase<T, N> {
-    using BitboardBase<T, N>::data;
-
-    constexpr Bitboard operator~() const {
-        if consteval {
-            return Bitboard{BitboardBase<T, N>::operator~()};
-        }
-
-        Bitboard r;
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(r.data, i, ~Detail::load_block<T>(data, i))), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((r.data[tail_start + i] = static_cast<T>(~data[tail_start + i])), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return r;
+    static Block splat(const T value) {
+        return Block(value);
     }
 
-    constexpr Bitboard& operator|=(const Bitboard& other) {
-        if consteval {
-            BitboardBase<T, N>::operator|=(other);
-            return *this;
-        }
-
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(data, i, Detail::load_block<T>(data, i) | Detail::load_block<T>(other.data, i))), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] |= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return *this;
+    template <int bits>
+    static Block shift(const Block value) {
+        if constexpr (bits >= 0)
+            return value << bits;
+        else
+            return value >> -bits;
     }
 
-    constexpr Bitboard& operator&=(const Bitboard& other) {
-        if consteval {
-            BitboardBase<T, N>::operator&=(other);
-            return *this;
-        }
-
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(data, i, Detail::load_block<T>(data, i) & Detail::load_block<T>(other.data, i))), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] &= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return *this;
+    template <size_t lane>
+    static Block set_lane(Block value, const T scalar) {
+        value[lane] = scalar;
+        return value;
     }
 
-    constexpr Bitboard& operator^=(const Bitboard& other) {
-        if consteval {
-            BitboardBase<T, N>::operator^=(other);
-            return *this;
-        }
-
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(data, i, Detail::load_block<T>(data, i) ^ Detail::load_block<T>(other.data, i))), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] ^= other[tail_start + i]), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return *this;
+    template <int offset>
+    static Block ext(const Block a, const Block b) {
+        Block result;
+        #pragma unroll
+        for (size_t i = 0; i < lanes; ++i)
+            result[i] = i + offset < lanes ? a[i + offset] : b[i + offset - lanes];
+        return result;
     }
 
-    constexpr Bitboard& operator<<=(const int bits) {
-        assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
-        if consteval {
-            BitboardBase<T, N>::operator<<=(bits);
-            return *this;
-        }
-
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(data, i, Detail::load_block<T>(data, i) << bits)), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] = static_cast<T>(data[tail_start + i] << bits)), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return *this;
+    static Block load(const T* values) {
+        return Block(values, std::experimental::element_aligned);
     }
 
-    constexpr Bitboard& operator>>=(const int bits) {
-        assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
-        if consteval {
-            BitboardBase<T, N>::operator>>=(bits);
-            return *this;
-        }
-
-        constexpr size_t blocks = N / Detail::simd_lanes;
-        constexpr size_t tail_start = blocks * Detail::simd_lanes;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((Detail::store_block<T>(data, i, Detail::load_block<T>(data, i) >> bits)), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((data[tail_start + i] = static_cast<T>(data[tail_start + i] >> bits)), ...);
-        }(std::make_index_sequence<N - tail_start>());
-        return *this;
+    static void store(T* values, const Block value) {
+        value.copy_to(values, std::experimental::element_aligned);
     }
 };
+
+template <typename T, size_t N>
+using Bitboard = BitboardBase<T, N, SimdBackend<T>>;
 
 } // namespace Cobra::Arch

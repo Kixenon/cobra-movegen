@@ -123,29 +123,12 @@ struct Board {
         if constexpr (dx == 0 && dy == 0)
             return *this;
 
-        Bitboard b{};
-        if constexpr (dx >= 0) {
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                if constexpr (dy > 0)
-                    ((b[i + dx] = static_cast<T>(data[i] << dy)), ...);
-                else if constexpr (dy < 0)
-                    ((b[i + dx] = static_cast<T>(data[i] >> -dy)), ...);
-                else
-                    ((b[i + dx] = data[i]), ...);
-            }(std::make_index_sequence<W - dx>());
-        } else {
-            constexpr int adx = -dx;
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                if constexpr (dy > 0)
-                    ((b[i] = static_cast<T>(data[i + adx] << dy)), ...);
-                else if constexpr (dy < 0)
-                    ((b[i] = static_cast<T>(data[i + adx] >> -dy)), ...);
-                else
-                    ((b[i] = data[i + adx]), ...);
-            }(std::make_index_sequence<W - adx>());
-        }
+        return Board{data.template shift<dx, dy>()};
+    }
 
-        return Board{b};
+    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
+    constexpr Board and_not_shifts(const Board& occupied) const {
+        return Board{data.template and_not_shifts<dx0, dy0, dx1, dy1, dx2, dy2>(occupied.data)};
     }
 
     constexpr bool any() const {

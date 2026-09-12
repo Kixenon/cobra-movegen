@@ -68,6 +68,44 @@ struct BitboardBase {
         return *this;
     }
 
+    template <int dx, int dy = 0>
+    constexpr BitboardBase shift() const {
+        static_assert(dx > -static_cast<int>(N) && dx < static_cast<int>(N));
+        static_assert(dy > -std::numeric_limits<T>::digits && dy < std::numeric_limits<T>::digits);
+        BitboardBase result{};
+        if constexpr (dx >= 0)
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result[i + dx] = data[i]), ...);
+            }(std::make_index_sequence<N - dx>());
+        else {
+            constexpr int adx = -dx;
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result[i] = data[i + adx]), ...);
+            }(std::make_index_sequence<N - adx>());
+        }
+        if constexpr (dy > 0)
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result[i] = static_cast<T>(result[i] << dy)), ...);
+            }(std::make_index_sequence<N>());
+        else if constexpr (dy < 0) {
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result[i] = static_cast<T>(result[i] >> -dy)), ...);
+            }(std::make_index_sequence<N>());
+        }
+        return result;
+    }
+
+    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
+    constexpr BitboardBase and_not_shifts(const BitboardBase& occupied) const {
+        BitboardBase blocked = occupied;
+        blocked |= occupied.template shift<dx0, dy0>();
+        blocked |= occupied.template shift<dx1, dy1>();
+        blocked |= occupied.template shift<dx2, dy2>();
+        BitboardBase result = *this;
+        result &= ~blocked;
+        return result;
+    }
+
     constexpr BitboardBase top_ray(const T hMask) const {
         BitboardBase result{};
         constexpr int digits = std::numeric_limits<T>::digits;

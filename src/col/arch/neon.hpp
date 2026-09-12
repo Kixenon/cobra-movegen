@@ -104,12 +104,11 @@ constexpr neon_t<T> neon_xor(neon_t<T> a, neon_t<T> b) {
 
 template <typename T>
 constexpr neon_t<T> neon_clz(neon_t<T> v) {
+    static_assert(std::is_same_v<T, uint16_t> || std::is_same_v<T, uint32_t>);
     if constexpr (std::is_same_v<T, uint16_t>)
         return vclzq_u16(v);
-    else if constexpr (std::is_same_v<T, uint32_t>)
-        return vclzq_u32(v);
     else
-        return vclzq_u64(v);
+        return vclzq_u32(v);
 }
 
 template <typename T>
@@ -152,43 +151,120 @@ constexpr neon_t<T> neon_shr(neon_t<T> v, int bits) {
         return vshlq_u64(v, vdupq_n_s64(static_cast<int64_t>(-bits)));
 }
 
+template <typename T>
+constexpr neon_t<T> neon_dup(const T value) {
+    if constexpr (std::is_same_v<T, uint16_t>)
+        return vdupq_n_u16(value);
+    else if constexpr (std::is_same_v<T, uint32_t>)
+        return vdupq_n_u32(value);
+    else
+        return vdupq_n_u64(value);
+}
+
+template <typename T, size_t lane>
+constexpr neon_t<T> neon_set_lane(neon_t<T> v, T value) {
+    if constexpr (std::is_same_v<T, uint16_t>)
+        return vsetq_lane_u16(value, v, lane);
+    else if constexpr (std::is_same_v<T, uint32_t>)
+        return vsetq_lane_u32(value, v, lane);
+    else
+        return vsetq_lane_u64(value, v, lane);
+}
+
+template <typename T, int offset>
+constexpr neon_t<T> neon_ext(neon_t<T> a, neon_t<T> b) {
+    if constexpr (std::is_same_v<T, uint16_t>)
+        return vextq_u16(a, b, offset);
+    else if constexpr (std::is_same_v<T, uint32_t>)
+        return vextq_u32(a, b, offset);
+    else
+        return vextq_u64(a, b, offset);
+}
+
+template <typename T, int dy>
+constexpr neon_t<T> neon_vertical_shift(neon_t<T> v) {
+    if constexpr (dy > 0)
+        return neon_shl<T>(v, dy);
+    else if constexpr (dy < 0)
+        return neon_shr<T>(v, -dy);
+    else
+        return v;
+}
+
 } // namespace Detail
 
 template <typename T, size_t N>
 struct Bitboard : BitboardBase<T, N> {
-    using BitboardBase<T, N>::data;
+    using Base = BitboardBase<T, N>;
+    using Base::data;
 
+private:
+
+    static constexpr size_t lanes = Detail::neon_lanes<T>;
+    static constexpr size_t blocks = N / lanes;
+    static constexpr size_t tail_start = blocks * lanes;
+
+    template <size_t block>
+    static constexpr auto load_padded(const Bitboard& source) {
+        if constexpr (block < blocks)
+            return Detail::load_block<T>(source.data, block);
+        else if constexpr (block * lanes < N) {
+            auto value = Detail::neon_dup<T>(0);
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((value = Detail::neon_set_lane<T, i>(value, source.data[(block * lanes) + i])), ...);
+            }(std::make_index_sequence<N - (block * lanes)>());
+            return value;
+        } else
+            return Detail::neon_dup<T>(0);
+    }
+
+    template <int dx, int dy, size_t block>
+    static constexpr auto load_shifted_block(const Bitboard& source) {
+        if constexpr (dx > 0) {
+            constexpr int q = dx / static_cast<int>(lanes);
+            constexpr int rem = dx % static_cast<int>(lanes);
+            if constexpr (static_cast<int>(block) < q)
+                return Detail::neon_dup<T>(0);
+            else if constexpr (rem == 0)
+                return Detail::neon_vertical_shift<T, dy>(load_padded<block - q>(source));
+            else {
+                constexpr int current = static_cast<int>(block) - q;
+                const auto before = current > 0 ? load_padded<static_cast<size_t>(current - 1)>(source) : Detail::neon_dup<T>(0);
+                const auto after = load_padded<static_cast<size_t>(current)>(source);
+                return Detail::neon_vertical_shift<T, dy>(
+                    Detail::neon_ext<T, static_cast<int>(lanes) - rem>(before, after));
+            }
+        } else if constexpr (dx < 0) {
+            constexpr int adx = -dx;
+            constexpr int q = adx / static_cast<int>(lanes);
+            constexpr int rem = adx % static_cast<int>(lanes);
+            if constexpr (rem == 0)
+                return Detail::neon_vertical_shift<T, dy>(load_padded<block + q>(source));
+            else {
+                constexpr int current = static_cast<int>(block) + q;
+                const auto before = load_padded<static_cast<size_t>(current)>(source);
+                const auto after = load_padded<static_cast<size_t>(current + 1)>(source);
+                return Detail::neon_vertical_shift<T, dy>(
+                    Detail::neon_ext<T, rem>(before, after));
+            }
+        } else
+            return Detail::neon_vertical_shift<T, dy>(load_padded<block>(source));
+    }
+
+public:
     constexpr Bitboard top_ray(const T hMask) const {
         if constexpr (std::is_same_v<T, uint64_t>)
-            return Bitboard{BitboardBase<T, N>::top_ray(hMask)};
+            return Bitboard{Base::top_ray(hMask)};
         else {
             if consteval {
-                return Bitboard{BitboardBase<T, N>::top_ray(hMask)};
+                return Bitboard{Base::top_ray(hMask)};
             }
 
-            constexpr size_t lanes = Detail::neon_lanes<T>;
-            constexpr size_t blocks = N / lanes;
-            constexpr size_t tail_start = blocks * lanes;
             Bitboard result{};
 
-            const auto mask = [&] {
-                if constexpr (std::is_same_v<T, uint16_t>)
-                    return vdupq_n_u16(hMask);
-                else
-                    return vdupq_n_u32(hMask);
-            }();
-            const auto digits = [&] {
-                if constexpr (std::is_same_v<T, uint16_t>)
-                    return vdupq_n_u16(16);
-                else
-                    return vdupq_n_u32(32);
-            }();
-            const auto one = [&] {
-                if constexpr (std::is_same_v<T, uint16_t>)
-                    return vdupq_n_u16(1);
-                else
-                    return vdupq_n_u32(1);
-            }();
+            const auto mask = Detail::neon_dup<T>(hMask);
+            const auto digits = Detail::neon_dup<T>(std::numeric_limits<T>::digits);
+            const auto one = Detail::neon_dup<T>(1);
 
             [&]<size_t... i>(std::index_sequence<i...>) {
                 ([&] {
@@ -202,9 +278,7 @@ struct Bitboard : BitboardBase<T, N> {
             [&]<size_t... i>(std::index_sequence<i...>) {
                 ([&] {
                     const int width = std::bit_width(static_cast<T>(hMask & ~data[tail_start + i]));
-                    const T fill = width == std::numeric_limits<T>::digits
-                        ? static_cast<T>(~T{})
-                        : static_cast<T>((static_cast<T>(1) << width) - 1);
+                    const T fill = width == std::numeric_limits<T>::digits ? static_cast<T>(~T{}) : static_cast<T>((static_cast<T>(1) << width) - 1);
                     result.data[tail_start + i] = static_cast<T>(hMask ^ fill);
                 }(), ...);
             }(std::make_index_sequence<N - tail_start>());
@@ -212,14 +286,55 @@ struct Bitboard : BitboardBase<T, N> {
         }
     }
 
+    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
+    constexpr Bitboard and_not_shifts(const Bitboard& occupied) const {
+        if consteval {
+            return Bitboard{Base::template and_not_shifts<dx0, dy0, dx1, dy1, dx2, dy2>(occupied)};
+        }
+
+        Bitboard result{};
+
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ([&] {
+                const auto blocked = Detail::neon_or<T>(
+                    Detail::neon_or<T>(Detail::load_block<T>(occupied.data, i), load_shifted_block<dx0, dy0, i>(occupied)),
+                    Detail::neon_or<T>(load_shifted_block<dx1, dy1, i>(occupied), load_shifted_block<dx2, dy2, i>(occupied)));
+                const auto available = Detail::neon_and<T>(Detail::load_block<T>(data, i), Detail::neon_not<T>(blocked));
+                Detail::store_block<T>(result.data, i, available);
+            }(), ...);
+        }(std::make_index_sequence<blocks>());
+
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ([&] {
+                constexpr int x = static_cast<int>(tail_start + i);
+                T blocked = occupied.data[x];
+                auto add = [&](const int dx, const int dy) {
+                    const int source = x - dx;
+                    if (source >= 0 && source < static_cast<int>(N)) {
+                        if (dy > 0)
+                            blocked |= static_cast<T>(occupied.data[static_cast<size_t>(source)] << dy);
+                        else if (dy < 0)
+                            blocked |= static_cast<T>(occupied.data[static_cast<size_t>(source)] >> -dy);
+                        else
+                            blocked |= occupied.data[static_cast<size_t>(source)];
+                    }
+                };
+                add(dx0, dy0);
+                add(dx1, dy1);
+                add(dx2, dy2);
+                result.data[x] = static_cast<T>(data[x] & ~blocked);
+            }(), ...);
+        }(std::make_index_sequence<N - tail_start>());
+
+        return result;
+    }
+
     constexpr Bitboard operator~() const {
         if consteval {
-            return Bitboard{BitboardBase<T, N>::operator~()};
+            return Bitboard{Base::operator~()};
         }
 
         Bitboard r;
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(r.data, i, Detail::neon_not<T>(Detail::load_block<T>(data, i))), ...);
         }(std::make_index_sequence<blocks>());
@@ -231,12 +346,10 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator|=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator|=(other);
+            Base::operator|=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(data, i, Detail::neon_or<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i))), ...);
         }(std::make_index_sequence<blocks>());
@@ -248,12 +361,10 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator&=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator&=(other);
+            Base::operator&=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(data, i, Detail::neon_and<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i))), ...);
         }(std::make_index_sequence<blocks>());
@@ -265,12 +376,10 @@ struct Bitboard : BitboardBase<T, N> {
 
     constexpr Bitboard& operator^=(const Bitboard& other) {
         if consteval {
-            BitboardBase<T, N>::operator^=(other);
+            Base::operator^=(other);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(data, i, Detail::neon_xor<T>(Detail::load_block<T>(data, i), Detail::load_block<T>(other.data, i))), ...);
         }(std::make_index_sequence<blocks>());
@@ -283,12 +392,10 @@ struct Bitboard : BitboardBase<T, N> {
     constexpr Bitboard& operator<<=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            BitboardBase<T, N>::operator<<=(bits);
+            Base::operator<<=(bits);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(data, i, Detail::neon_shl<T>(Detail::load_block<T>(data, i), bits)), ...);
         }(std::make_index_sequence<blocks>());
@@ -301,12 +408,10 @@ struct Bitboard : BitboardBase<T, N> {
     constexpr Bitboard& operator>>=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
-            BitboardBase<T, N>::operator>>=(bits);
+            Base::operator>>=(bits);
             return *this;
         }
 
-        constexpr size_t blocks = N / Detail::neon_lanes<T>;
-        constexpr size_t tail_start = blocks * Detail::neon_lanes<T>;
         [&]<size_t... i>(std::index_sequence<i...>) {
             (Detail::store_block<T>(data, i, Detail::neon_shr<T>(Detail::load_block<T>(data, i), bits)), ...);
         }(std::make_index_sequence<blocks>());

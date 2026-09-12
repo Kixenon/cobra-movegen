@@ -87,22 +87,34 @@ template <typename BoardT, Piece p>
 constexpr auto usable_map(const BoardT& b) {
     static_assert(p.is_ok());
 
+    constexpr auto valid = [] {
+        SmearedBoard<BoardT, canonical_size<p>()> result;
+        [&]<size_t... rs>(std::index_sequence<rs...>) {
+            ([&]<Rotation r>{
+                constexpr PieceCoordinates pc = piece_table<p, r>();
+                result[r] = ~BoardT{};
+
+                [&]<size_t... i>(std::index_sequence<i...>) {
+                    ([&]{
+                        if constexpr (pc[i].y > 0) // Don't kick against ceiling
+                            result[r] &= (~BoardT{}.template shift<0, -pc[i].y>()).template shift<-pc[i].x, 0>();
+                        else
+                            result[r] &= (~BoardT{}).template shift<-pc[i].x, -pc[i].y>();
+                    }(), ...);
+                }(std::make_index_sequence<3>());
+            }.template operator()<Rotation(rs)>(), ...);
+        }(std::make_index_sequence<canonical_size<p>()>());
+
+        return result;
+    }();
+
     SmearedBoard<BoardT, canonical_size<p>()> result;
 
-    auto init = [&]<Rotation r>{
+    auto init = [&]<Rotation r> {
         constexpr PieceCoordinates pc = piece_table<p, r>();
-        const BoardT temp = ~b;
-        result[r] = temp;
-
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ([&]{
-                if constexpr (pc[i].y > 0) // Don't kick against ceiling
-                    result[r] &= (~b.template shift<0, -pc[i].y>()).template shift<-pc[i].x, 0>();
-                else
-                    result[r] &= temp.template shift<-pc[i].x, -pc[i].y>();
-            }(), ...);
-        }(std::make_index_sequence<3>());
+        result[r] = valid[r].template and_not_shifts<-pc[0].x, -pc[0].y, -pc[1].x, -pc[1].y, -pc[2].x, -pc[2].y>(b);
     };
+
     [&]<size_t... rs>(std::index_sequence<rs...>) {
         (init.template operator()<Rotation(rs)>(), ...);
     }(std::make_index_sequence<result.size()>());

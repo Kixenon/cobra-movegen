@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -164,11 +165,15 @@ struct Board {
     }
 
     constexpr Board operator~() const {
-        Board result;
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ((result.data[i] = Tall & ~data[i]), ...);
-        }(std::make_index_sequence<W>());
-        return result;
+        Bitboard result{~data};
+        if constexpr (H < std::numeric_limits<T>::digits) {
+            Bitboard mask{};
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((mask[i] = Tall), ...);
+            }(std::make_index_sequence<W>());
+            result &= mask;
+        }
+        return Board{result};
     }
 
     constexpr Board& operator|=(const Board& other) {

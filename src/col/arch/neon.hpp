@@ -199,7 +199,6 @@ struct Bitboard : BitboardBase<T, N> {
     using Base::data;
 
 private:
-
     static constexpr size_t lanes = Detail::neon_lanes<T>;
     static constexpr size_t blocks = N / lanes;
     static constexpr size_t tail_start = blocks * lanes;
@@ -252,38 +251,36 @@ private:
     }
 
 public:
-    constexpr Bitboard top_ray(const T hMask) const {
-        if constexpr (std::is_same_v<T, uint64_t>)
-            return Bitboard{Base::top_ray(hMask)};
-        else {
-            if consteval {
-                return Bitboard{Base::top_ray(hMask)};
-            }
+    template <int dx, int dy = 0>
+    constexpr Bitboard shift() const {
+        static_assert(dx > -static_cast<int>(N) && dx < static_cast<int>(N));
+        static_assert(dy > -std::numeric_limits<T>::digits && dy < std::numeric_limits<T>::digits);
 
-            Bitboard result{};
-
-            const auto mask = Detail::neon_dup<T>(hMask);
-            const auto digits = Detail::neon_dup<T>(std::numeric_limits<T>::digits);
-            const auto one = Detail::neon_dup<T>(1);
-
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ([&] {
-                    const auto blocked = Detail::neon_and<T>(Detail::neon_not<T>(Detail::load_block<T>(data, i)), mask);
-                    const auto width = Detail::neon_sub<T>(digits, Detail::neon_clz<T>(blocked));
-                    const auto fill = Detail::neon_sub<T>(Detail::neon_shift_one<T>(width), one);
-                    Detail::store_block<T>(result.data, i, Detail::neon_xor<T>(mask, fill));
-                }(), ...);
-            }(std::make_index_sequence<blocks>());
-
-            [&]<size_t... i>(std::index_sequence<i...>) {
-                ([&] {
-                    const int width = std::bit_width(static_cast<T>(hMask & ~data[tail_start + i]));
-                    const T fill = width == std::numeric_limits<T>::digits ? static_cast<T>(~T{}) : static_cast<T>((static_cast<T>(1) << width) - 1);
-                    result.data[tail_start + i] = static_cast<T>(hMask ^ fill);
-                }(), ...);
-            }(std::make_index_sequence<N - tail_start>());
-            return result;
+        if consteval {
+            return Bitboard{Base::template shift<dx, dy>()};
         }
+
+        Bitboard result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            (Detail::store_block<T>(result.data, i, load_shifted_block<dx, dy, i>(*this)), ...);
+        }(std::make_index_sequence<blocks>());
+
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result.data[tail_start + i] = [&] {
+                constexpr int source = static_cast<int>(tail_start + i) - dx;
+                if constexpr (source >= 0 && source < static_cast<int>(N)) {
+                    if constexpr (dy > 0)
+                        return static_cast<T>(data[source] << dy);
+                    else if constexpr (dy < 0)
+                        return static_cast<T>(data[source] >> -dy);
+                    else
+                        return data[source];
+                }
+                return T{};
+            }()), ...);
+        }(std::make_index_sequence<N - tail_start>());
+
+        return result;
     }
 
     template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
@@ -327,6 +324,40 @@ public:
         }(std::make_index_sequence<N - tail_start>());
 
         return result;
+    }
+
+    constexpr Bitboard top_ray(const T hMask) const {
+        if constexpr (std::is_same_v<T, uint64_t>)
+            return Bitboard{Base::top_ray(hMask)};
+        else {
+            if consteval {
+                return Bitboard{Base::top_ray(hMask)};
+            }
+
+            Bitboard result{};
+
+            const auto mask = Detail::neon_dup<T>(hMask);
+            const auto digits = Detail::neon_dup<T>(std::numeric_limits<T>::digits);
+            const auto one = Detail::neon_dup<T>(1);
+
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ([&] {
+                    const auto blocked = Detail::neon_and<T>(Detail::neon_not<T>(Detail::load_block<T>(data, i)), mask);
+                    const auto width = Detail::neon_sub<T>(digits, Detail::neon_clz<T>(blocked));
+                    const auto fill = Detail::neon_sub<T>(Detail::neon_shift_one<T>(width), one);
+                    Detail::store_block<T>(result.data, i, Detail::neon_xor<T>(mask, fill));
+                }(), ...);
+            }(std::make_index_sequence<blocks>());
+
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ([&] {
+                    const int width = std::bit_width(static_cast<T>(hMask & ~data[tail_start + i]));
+                    const T fill = width == std::numeric_limits<T>::digits ? static_cast<T>(~T{}) : static_cast<T>((static_cast<T>(1) << width) - 1);
+                    result.data[tail_start + i] = static_cast<T>(hMask ^ fill);
+                }(), ...);
+            }(std::make_index_sequence<N - tail_start>());
+            return result;
+        }
     }
 
     constexpr Bitboard operator~() const {

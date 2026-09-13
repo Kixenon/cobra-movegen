@@ -255,6 +255,9 @@ struct Board {
     constexpr Board<H1> cast_height() const {
         static_assert(BoardBase::is_ok_h(H1));
 
+        if constexpr (H1 == H)
+            return *this;
+
         Board<H1> result;
         [&]<size_t... i>(std::index_sequence<i...>) {
             ((result.data[i] = static_cast<Board<H1>::T>(data[i])), ...);

@@ -270,31 +270,6 @@ struct Board {
         return *this & ~blocked;
     }
 
-    constexpr bool any() const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return (data[i] || ...);
-        }(std::make_index_sequence<Tn>());
-
-        // No measurable difference in speed
-        // T temp{};
-        // [&]<size_t... i>(std::index_sequence<i...>) {
-        //     ((temp |= data[i]), ...);
-        // }(std::make_index_sequence<Tn>());
-        // return temp;
-    }
-
-    constexpr bool operator==(const Board& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] == other.data[i]) && ...);
-        }(std::make_index_sequence<Tn>());
-    }
-
-    constexpr bool operator!=(const Board& other) const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return ((data[i] != other.data[i]) || ...);
-        }(std::make_index_sequence<Tn>());
-    }
-
     constexpr Board operator~() const {
         return Board{all() & ~data};
     }
@@ -324,6 +299,31 @@ struct Board {
 
     constexpr Board operator^(const Board& other) const {
         return Board{data ^ other.data};
+    }
+
+    constexpr bool any() const {
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return (data[i] || ...);
+        }(std::make_index_sequence<Tn>());
+
+        // No measurable difference in speed
+        // T temp{};
+        // [&]<size_t... i>(std::index_sequence<i...>) {
+        //     ((temp |= data[i]), ...);
+        // }(std::make_index_sequence<Tn>());
+        // return temp;
+    }
+
+    constexpr bool operator==(const Board& other) const {
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return ((data[i] == other.data[i]) && ...);
+        }(std::make_index_sequence<Tn>());
+    }
+
+    constexpr bool operator!=(const Board& other) const {
+        return [&]<size_t... i>(std::index_sequence<i...>) {
+            return ((data[i] != other.data[i]) || ...);
+        }(std::make_index_sequence<Tn>());
     }
 
     constexpr Board line_clears() const {

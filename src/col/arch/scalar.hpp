@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base.hpp"
+
 #include <cstddef>
 
 namespace Cobra::Arch {
@@ -9,18 +10,17 @@ template <typename T>
 struct ScalarBackend {
     using Block = T;
     static constexpr size_t lanes = 1;
-    static constexpr bool hasClz = false;
 
     static constexpr Block splat(const T value) {
         return value;
     }
 
-    template <int bits>
-    static constexpr Block shift(const Block value) {
-        if constexpr (bits >= 0)
-            return static_cast<Block>(value << bits);
-        else
-            return static_cast<Block>(value >> -bits);
+    static constexpr Block load(const T* values) {
+        return *values;
+    }
+
+    static constexpr void store(T* values, const Block value) {
+        *values = value;
     }
 
     template <size_t lane>
@@ -35,12 +35,16 @@ struct ScalarBackend {
         return a;
     }
 
-    static constexpr Block load(const T* values) {
-        return *values;
+    template <int bits>
+    static constexpr Block shift(const Block value) {
+        if constexpr (bits >= 0)
+            return static_cast<Block>(value << bits);
+        else
+            return static_cast<Block>(value >> -bits);
     }
 
-    static constexpr void store(T* values, const Block value) {
-        *values = value;
+    static constexpr T reduce_or(const Block value) {
+        return value;
     }
 };
 

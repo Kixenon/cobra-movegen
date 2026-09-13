@@ -131,22 +131,6 @@ struct Board {
         return Board{data.template and_not_shifts<dx0, dy0, dx1, dy1, dx2, dy2>(occupied.data)};
     }
 
-    constexpr bool any() const {
-        return data.any();
-    }
-
-    constexpr Board top_ray() const {
-        return Board{data.top_ray(Tall)};
-    }
-
-    constexpr bool operator==(const Board& other) const {
-        return data == other.data;
-    }
-
-    constexpr bool operator!=(const Board& other) const {
-        return data != other.data;
-    }
-
     constexpr Board operator~() const {
         Bitboard result{~data};
         if constexpr (H < std::numeric_limits<T>::digits) {
@@ -190,6 +174,22 @@ struct Board {
         Board r = *this;
         r ^= other;
         return r;
+    }
+
+    constexpr bool any() const {
+        return data.any();
+    }
+
+    constexpr Board top_ray() const {
+        return Board{data.top_ray(Tall)};
+    }
+
+    constexpr bool operator==(const Board& other) const {
+        return data == other.data;
+    }
+
+    constexpr bool operator!=(const Board& other) const {
+        return data != other.data;
     }
 
     constexpr T line_clears() const {
@@ -266,9 +266,7 @@ struct Board {
     }
 
     constexpr int max_y() const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return std::bit_width(static_cast<T>((data[i] | ...)));
-        }(std::make_index_sequence<W>());
+        return std::bit_width(data.reduce_or());
     }
 
     constexpr int popcount() const {

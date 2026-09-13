@@ -93,14 +93,6 @@ struct NeonBackend {
                 return {vshlq_u64(v.value, vreinterpretq_s64_u64(bits.value))};
         }
 
-        static constexpr NeonT clz(const NeonT v) {
-            static_assert(std::is_same_v<T, uint16_t> || std::is_same_v<T, uint32_t>);
-            if constexpr (std::is_same_v<T, uint16_t>)
-                return {vclzq_u16(v.value)};
-            else
-                return {vclzq_u32(v.value)};
-        }
-
         template <size_t lane>
         static constexpr NeonT set_lane(const NeonT v, const T value) {
             if constexpr (std::is_same_v<T, uint16_t>)
@@ -120,36 +112,21 @@ struct NeonBackend {
             else
                 return {vextq_u64(a.value, b.value, offset)};
         }
+
+        static constexpr NeonT clz(const NeonT v) {
+            static_assert(std::is_same_v<T, uint16_t> || std::is_same_v<T, uint32_t>);
+            if constexpr (std::is_same_v<T, uint16_t>)
+                return {vclzq_u16(v.value)};
+            else
+                return {vclzq_u32(v.value)};
+        }
     };
 
     using Block = NeonT;
     static constexpr size_t lanes = sizeof(typename NeonT::Native) / sizeof(T);
-    static constexpr bool hasClz = std::is_same_v<T, uint16_t> || std::is_same_v<T, uint32_t>;
 
     static constexpr Block splat(const T value) {
         return Block::splat(value);
-    }
-
-    template <int bits>
-    static constexpr Block shift(const Block value) {
-        if constexpr (bits >= 0)
-            return value << bits;
-        else
-            return value >> -bits;
-    }
-
-    template <size_t lane>
-    static constexpr Block set_lane(const Block value, const T scalar) {
-        return Block::template set_lane<lane>(value, scalar);
-    }
-
-    template <int offset>
-    static constexpr Block ext(const Block a, const Block b) {
-        return Block::template ext<offset>(a, b);
-    }
-
-    static constexpr Block clz(const Block value) {
-        return Block::clz(value);
     }
 
     static constexpr Block load(const T* values) {
@@ -168,6 +145,46 @@ struct NeonBackend {
             vst1q_u32(values, val.value);
         else
             vst1q_u64(values, val.value);
+    }
+
+    template <size_t lane>
+    static constexpr Block set_lane(const Block value, const T scalar) {
+        return Block::template set_lane<lane>(value, scalar);
+    }
+
+    template <int offset>
+    static constexpr Block ext(const Block a, const Block b) {
+        return Block::template ext<offset>(a, b);
+    }
+
+    template <int bits>
+    static constexpr Block shift(const Block value) {
+        if constexpr (bits >= 0)
+            return value << bits;
+        else
+            return value >> -bits;
+    }
+
+    template <typename U = T>
+    requires (std::is_same_v<U, uint16_t> || std::is_same_v<U, uint32_t>)
+    static constexpr Block clz(const Block value) {
+        return Block::clz(value);
+    }
+
+    static constexpr T reduce_or(Block value) {
+        if constexpr (std::is_same_v<T, uint16_t>) {
+            value.value = vorrq_u16(value.value, vextq_u16(value.value, value.value, 4));
+            value.value = vorrq_u16(value.value, vextq_u16(value.value, value.value, 2));
+            value.value = vorrq_u16(value.value, vextq_u16(value.value, value.value, 1));
+            return vgetq_lane_u16(value.value, 0);
+        } else if constexpr (std::is_same_v<T, uint32_t>) {
+            value.value = vorrq_u32(value.value, vextq_u32(value.value, value.value, 2));
+            value.value = vorrq_u32(value.value, vextq_u32(value.value, value.value, 1));
+            return vgetq_lane_u32(value.value, 0);
+        } else {
+            value.value = vorrq_u64(value.value, vextq_u64(value.value, value.value, 1));
+            return vgetq_lane_u64(value.value, 0);
+        }
     }
 };
 

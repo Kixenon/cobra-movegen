@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <experimental/simd>
+#include <utility>
 
 namespace Cobra::Arch {
 
@@ -11,18 +12,17 @@ template <typename T>
 struct SimdBackend {
     using Block = std::experimental::fixed_size_simd<T, 8>;
     static constexpr size_t lanes = 8;
-    static constexpr bool hasClz = false;
 
     static Block splat(const T value) {
         return Block(value);
     }
 
-    template <int bits>
-    static Block shift(const Block value) {
-        if constexpr (bits >= 0)
-            return value << bits;
-        else
-            return value >> -bits;
+    static Block load(const T* values) {
+        return Block(values, std::experimental::element_aligned);
+    }
+
+    static void store(T* values, const Block value) {
+        value.copy_to(values, std::experimental::element_aligned);
     }
 
     template <size_t lane>
@@ -34,18 +34,26 @@ struct SimdBackend {
     template <int offset>
     static Block ext(const Block a, const Block b) {
         Block result;
-        #pragma unroll
-        for (size_t i = 0; i < lanes; ++i)
-            result[i] = i + offset < lanes ? a[i + offset] : b[i + offset - lanes];
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result[i] = i + offset < lanes ? a[i + offset] : b[i + offset - lanes]), ...);
+        }(std::make_index_sequence<lanes>());
         return result;
     }
 
-    static Block load(const T* values) {
-        return Block(values, std::experimental::element_aligned);
+    template <int bits>
+    static Block shift(const Block value) {
+        if constexpr (bits >= 0)
+            return value << bits;
+        else
+            return value >> -bits;
     }
 
-    static void store(T* values, const Block value) {
-        value.copy_to(values, std::experimental::element_aligned);
+    static T reduce_or(const Block value) {
+        T result{};
+        [&]<size_t... i>(std::index_sequence<i...>) {
+            ((result = static_cast<T>(result | value[i])), ...);
+        }(std::make_index_sequence<lanes>());
+        return result;
     }
 };
 

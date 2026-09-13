@@ -62,6 +62,12 @@ public:
         return *this;
     }
 
+    constexpr Bitboard operator|(const Bitboard& o) const {
+        Bitboard r = *this;
+        r |= o;
+        return r;
+    }
+
     constexpr Bitboard& operator&=(const Bitboard& other) {
         if consteval {
             Base::operator&=(other);
@@ -75,6 +81,12 @@ public:
             ((data[tailStart + i] &= other[tailStart + i]), ...);
         }(std::make_index_sequence<N - tailStart>());
         return *this;
+    }
+
+    constexpr Bitboard operator&(const Bitboard& o) const {
+        Bitboard r = *this;
+        r &= o;
+        return r;
     }
 
     constexpr Bitboard& operator^=(const Bitboard& other) {
@@ -92,6 +104,12 @@ public:
         return *this;
     }
 
+    constexpr Bitboard operator^(const Bitboard& o) const {
+        Bitboard r = *this;
+        r ^= o;
+        return r;
+    }
+
     constexpr Bitboard& operator+=(const Bitboard& other) {
         if consteval {
             Base::operator+=(other);
@@ -105,6 +123,12 @@ public:
             ((data[tailStart + i] += other[tailStart + i]), ...);
         }(std::make_index_sequence<N - tailStart>());
         return *this;
+    }
+
+    constexpr Bitboard operator+(const Bitboard& o) const {
+        Bitboard r = *this;
+        r += o;
+        return r;
     }
 
     constexpr Bitboard& operator<<=(const int bits) {
@@ -123,6 +147,12 @@ public:
         return *this;
     }
 
+    constexpr Bitboard operator<<(int bits) const {
+        Bitboard r = *this;
+        r <<= bits;
+        return r;
+    }
+
     constexpr Bitboard& operator>>=(const int bits) {
         assert(bits >= 0 && bits < static_cast<int>(sizeof(T) * 8));
         if consteval {
@@ -137,36 +167,6 @@ public:
             ((data[tailStart + i] = static_cast<T>(data[tailStart + i] >> bits)), ...);
         }(std::make_index_sequence<N - tailStart>());
         return *this;
-    }
-
-    constexpr Bitboard operator|(const Bitboard& o) const {
-        Bitboard r = *this;
-        r |= o;
-        return r;
-    }
-
-    constexpr Bitboard operator&(const Bitboard& o) const {
-        Bitboard r = *this;
-        r &= o;
-        return r;
-    }
-
-    constexpr Bitboard operator^(const Bitboard& o) const {
-        Bitboard r = *this;
-        r ^= o;
-        return r;
-    }
-
-    constexpr Bitboard operator+(const Bitboard& o) const {
-        Bitboard r = *this;
-        r += o;
-        return r;
-    }
-
-    constexpr Bitboard operator<<(int bits) const {
-        Bitboard r = *this;
-        r <<= bits;
-        return r;
     }
 
     constexpr Bitboard operator>>(int bits) const {

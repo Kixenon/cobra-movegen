@@ -292,9 +292,7 @@ public:
     }
 
     constexpr BitboardBase top_ray(const T hMask) const {
-        if constexpr (!Backend::hasClz)
-            return scalar_top_ray(hMask);
-        else {
+        if constexpr (requires { Backend::clz(std::declval<Block>()); }) {
             if consteval {
                 return scalar_top_ray(hMask);
             }
@@ -317,6 +315,32 @@ public:
                 ((result.data[tailStart + i] = top_ray_value<tailStart + i>(hMask)), ...);
             }(std::make_index_sequence<N - tailStart>());
             return result;
+        } else
+            return scalar_top_ray(hMask);
+    }
+
+    constexpr T reduce_or() const {
+        if consteval {
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return static_cast<T>((data[i] | ...));
+            }(std::make_index_sequence<N>());
+        }
+
+        if constexpr (blocks > 0) {
+            auto result = load_block(data, 0);
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result = result | load_block(data, i + 1)), ...);
+            }(std::make_index_sequence<blocks - 1>());
+
+            T scalar = Backend::reduce_or(result);
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((scalar = static_cast<T>(scalar | data[tailStart + i])), ...);
+            }(std::make_index_sequence<N - tailStart>());
+            return scalar;
+        } else {
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return static_cast<T>((data[i] | ...));
+            }(std::make_index_sequence<N>());
         }
     }
 

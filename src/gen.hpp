@@ -110,13 +110,11 @@ constexpr auto usable_map(const BoardT& b) {
 
     SmearedBoard<BoardT, canonical_size<p>()> result;
 
-    auto init = [&]<Rotation r> {
-        constexpr PieceCoordinates pc = piece_table<p, r>();
-        result[r] = valid[r].template and_not_shifts<-pc[0].x, -pc[0].y, -pc[1].x, -pc[1].y, -pc[2].x, -pc[2].y>(b);
-    };
-
     [&]<size_t... rs>(std::index_sequence<rs...>) {
-        (init.template operator()<Rotation(rs)>(), ...);
+        ([&]<Rotation r>{
+            constexpr PieceCoordinates pc = piece_table<p, r>();
+            result[r] = valid[r] & ~(b | b.template shift<-pc[0].x, -pc[0].y>() | b.template shift<-pc[1].x, -pc[1].y>() | b.template shift<-pc[2].x, -pc[2].y>());
+        }.template operator()<Rotation(rs)>(), ...);
     }(std::make_index_sequence<result.size()>());
 
     return result;

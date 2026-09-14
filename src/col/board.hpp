@@ -126,11 +126,6 @@ struct Board {
         return Board{data.template shift<dx, dy>()};
     }
 
-    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
-    constexpr Board and_not_shifts(const Board& occupied) const {
-        return Board{data.template and_not_shifts<dx0, dy0, dx1, dy1, dx2, dy2>(occupied.data)};
-    }
-
     constexpr Board operator~() const {
         Bitboard result{~data};
         if constexpr (H < std::numeric_limits<T>::digits) {

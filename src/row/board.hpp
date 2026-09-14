@@ -261,15 +261,6 @@ struct Board {
         return Board{b};
     }
 
-    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
-    constexpr Board and_not_shifts(const Board& occupied) const {
-        Board blocked = occupied;
-        blocked |= occupied.template shift<dx0, dy0>();
-        blocked |= occupied.template shift<dx1, dy1>();
-        blocked |= occupied.template shift<dx2, dy2>();
-        return *this & ~blocked;
-    }
-
     constexpr Board operator~() const {
         return Board{all() & ~data};
     }

@@ -262,35 +262,6 @@ public:
         return result;
     }
 
-    template <int dx0, int dy0, int dx1, int dy1, int dx2, int dy2>
-    constexpr BitboardBase and_not_shifts(const BitboardBase& occupied) const {
-        if consteval {
-            BitboardBase blocked = occupied;
-            blocked |= occupied.template shift<dx0, dy0>();
-            blocked |= occupied.template shift<dx1, dy1>();
-            blocked |= occupied.template shift<dx2, dy2>();
-            BitboardBase result = *this;
-            result &= ~blocked;
-            return result;
-        }
-
-        BitboardBase result{};
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ([&] {
-                const auto blocked = (load_block(occupied.data, i) | load_shifted_block<dx0, dy0, i>(occupied)) | (load_shifted_block<dx1, dy1, i>(occupied) | load_shifted_block<dx2, dy2, i>(occupied));
-                store_block(result.data, i, load_block(data, i) & ~blocked);
-            }(), ...);
-        }(std::make_index_sequence<blocks>());
-        [&]<size_t... i>(std::index_sequence<i...>) {
-            ([&] {
-                constexpr size_t x = tailStart + i;
-                const T blocked = static_cast<T>(occupied.data[x] | shifted_value<dx0, dy0, x>(occupied) | shifted_value<dx1, dy1, x>(occupied) | shifted_value<dx2, dy2, x>(occupied));
-                result.data[x] = static_cast<T>(data[x] & ~blocked);
-            }(), ...);
-        }(std::make_index_sequence<N - tailStart>());
-        return result;
-    }
-
     constexpr BitboardBase top_ray(const T hMask) const {
         if constexpr (requires { Backend::clz(std::declval<Block>()); }) {
             if consteval {

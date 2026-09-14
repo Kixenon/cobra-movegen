@@ -186,6 +186,24 @@ struct NeonBackend {
             return vgetq_lane_u64(value.value, 0);
         }
     }
+
+    static constexpr int popcount(const Block value) {
+        if constexpr (std::is_same_v<T, uint16_t>)
+            return static_cast<int>(vaddlvq_u8(vcntq_u8(vreinterpretq_u8_u16(value.value))));
+        else if constexpr (std::is_same_v<T, uint32_t>)
+            return static_cast<int>(vaddlvq_u8(vcntq_u8(vreinterpretq_u8_u32(value.value))));
+        else
+            return static_cast<int>(vaddlvq_u8(vcntq_u8(vreinterpretq_u8_u64(value.value))));
+    }
+
+    static constexpr bool any(const Block value) {
+        if constexpr (std::is_same_v<T, uint16_t>)
+            return vmaxvq_u16(value.value) != 0;
+        else if constexpr (std::is_same_v<T, uint32_t>)
+            return vmaxvq_u32(value.value) != 0;
+        else
+            return reduce_or(value) != 0;
+    }
 };
 
 template <typename T, size_t N>

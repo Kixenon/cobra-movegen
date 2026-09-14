@@ -344,10 +344,48 @@ public:
         }
     }
 
+    constexpr int popcount() const {
+        if consteval {
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return (std::popcount(data[i]) + ...);
+            }(std::make_index_sequence<N>());
+        }
+
+        if constexpr (requires { Backend::popcount(std::declval<Block>()); }) {
+            int result = 0;
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result += Backend::popcount(load_block(data, i))), ...);
+            }(std::make_index_sequence<blocks>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result += std::popcount(data[tailStart + i])), ...);
+            }(std::make_index_sequence<N - tailStart>());
+            return result;
+        } else
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return (std::popcount(data[i]) + ...);
+            }(std::make_index_sequence<N>());
+    }
+
     constexpr bool any() const {
-        return [&]<size_t... i>(std::index_sequence<i...>) {
-            return (data[i] || ...);
-        }(std::make_index_sequence<N>());
+        if consteval {
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return (data[i] || ...);
+            }(std::make_index_sequence<N>());
+        }
+
+        if constexpr (requires { Backend::any(std::declval<Block>()); }) {
+            bool result = false;
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result = result || Backend::any(load_block(data, i))), ...);
+            }(std::make_index_sequence<blocks>());
+            [&]<size_t... i>(std::index_sequence<i...>) {
+                ((result = result || (data[tailStart + i] != 0)), ...);
+            }(std::make_index_sequence<N - tailStart>());
+            return result;
+        } else
+            return [&]<size_t... i>(std::index_sequence<i...>) {
+                return (data[i] || ...);
+            }(std::make_index_sequence<N>());
     }
 
     constexpr bool operator==(const BitboardBase& other) const {

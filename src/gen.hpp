@@ -3,6 +3,7 @@
 #include "header.hpp"
 #include "ruleset.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -238,6 +239,30 @@ template<typename RulesT, Direction d, size_t N>
 requires Ruleset<RulesT>
 consteval size_t kick_size() {
     return (RulesT::KICKS == Policy::KickRule::SRS && d == Gen::Direction::FLIP) ? 2 : N;
+}
+
+template <Piece p, Rotation r, Direction d, const auto& kickTable, size_t kickIndex>
+consteval bool kick_is_dominated() {
+    constexpr Rotation r1 = rotate<d>(r);
+    constexpr Rotation rc = canonical_r<p>(r);
+    constexpr Rotation r1c = canonical_r<p>(r1);
+    constexpr auto off = canonical_offset<p>(r) - canonical_offset<p>(r1);
+    constexpr auto pc = piece_table<p, rc>();
+    constexpr auto pc1 = piece_table<p, r1c>();
+    const auto kick1 = kickTable[r][kickIndex] + off;
+    const auto occupied = std::array{
+        Coordinates{}, pc[0], pc[1], pc[2],
+        kick1, kick1 + pc1[0], kick1 + pc1[1], kick1 + pc1[2]};
+
+    for (size_t i = 0; i < kickIndex; ++i) {
+        const auto kick = kickTable[r][i] + off;
+        if (std::ranges::contains(occupied, kick)
+            && std::ranges::contains(occupied, kick + pc1[0])
+            && std::ranges::contains(occupied, kick + pc1[1])
+            && std::ranges::contains(occupied, kick + pc1[2]))
+            return true;
+    }
+    return false;
 }
 
 } // namespace Gen

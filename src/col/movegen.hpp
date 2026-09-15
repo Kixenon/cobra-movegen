@@ -157,10 +157,12 @@ private:
 
                             [&]<size_t... i>(std::index_sequence<i...>) {
                                 ([&]{
-                                    constexpr auto kick = kickTable[r][i] + off;
-                                    result |= temp.template shift<kick.x, kick.y>();
-                                    if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~usable[r1c].template shift<-kick.x, -kick.y>();
+                                    if constexpr (!Gen::kick_is_dominated<p, r, d, kickTable, i>()) {
+                                        constexpr auto kick = kickTable[r][i] + off;
+                                        result |= temp.template shift<kick.x, kick.y>();
+                                        if constexpr (i != sizeof...(i) - 1)
+                                            temp &= ~usable[r1c].template shift<-kick.x, -kick.y>();
+                                    }
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 
@@ -318,21 +320,23 @@ private:
 
                             [&]<size_t... i>(std::index_sequence<i...>) {
                                 ([&] {
-                                    constexpr auto kick = kickTable[r][i] + off;
-                                    const BoardT m = temp.template shift<kick.x, kick.y>();
-                                    result |= m;
+                                    if constexpr (!Gen::kick_is_dominated<p, r, d, kickTable, i>()) {
+                                        constexpr auto kick = kickTable[r][i] + off;
+                                        const BoardT m = temp.template shift<kick.x, kick.y>();
+                                        result |= m;
 
-                                    const BoardT spun = m & spins;
-                                    spinReach[SpinType::NONE][r1] |= m ^ spun;
-                                    if constexpr (i >= 4)
-                                        spinReach[SpinType::FULL][r1] |= spun;
-                                    else {
-                                        spinReach[SpinType::MINI][r1] |= spun & ~spinMap[r1];
-                                        spinReach[SpinType::FULL][r1] |= spun & spinMap[r1];
+                                        const BoardT spun = m & spins;
+                                        spinReach[SpinType::NONE][r1] |= m ^ spun;
+                                        if constexpr (i >= 4)
+                                            spinReach[SpinType::FULL][r1] |= spun;
+                                        else {
+                                            spinReach[SpinType::MINI][r1] |= spun & ~spinMap[r1];
+                                            spinReach[SpinType::FULL][r1] |= spun & spinMap[r1];
+                                        }
+
+                                        if constexpr (i != sizeof...(i) - 1)
+                                            temp &= ~usable[r1].template shift<-kick.x, -kick.y>();
                                     }
-
-                                    if constexpr (i != sizeof...(i) - 1)
-                                        temp &= ~usable[r1].template shift<-kick.x, -kick.y>();
                                 }(), ...);
                             }(std::make_index_sequence<kickSize>());
 

@@ -154,6 +154,9 @@ Inputs get_input(const Board<>& b, const Move& target, const bool useFinesse, co
 
                     [&]<size_t... i>(std::index_sequence<i...>) {
                         ([&]{
+                            if constexpr (Gen::kick_is_dominated<p, r, d, kickTable, i>())
+                                return true;
+
                             constexpr auto kick = kickTable[r][i] + off;
                             l.x = m.x + kick.x;
                             l.y = m.y + kick.y;

@@ -151,6 +151,8 @@ struct Coordinates {
     constexpr Coordinates operator-(const Coordinates& c) const {
         return Coordinates(x - c.x, y - c.y);
     }
+
+    constexpr bool operator==(const Coordinates&) const = default;
 };
 
 using PieceCoordinates = std::array<Coordinates, 3>; // Only 3 offset needed since one is always at (0, 0)

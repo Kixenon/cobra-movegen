@@ -27,7 +27,7 @@ Currently, it runs perft from an empty position, though this can be modified as 
 Benchmarked on an M2 MacBook Pro (results may vary):
 ```bash
 make bench backend=col && ./bin/bench IOLJSZT
-Depth: 7 Nodes: 2647076135 Time: 4455ms NPS: 594047606
+Depth: 7 Nodes: 2647076135 Time: 3276ms NPS: 807774224
 ```
 
 ## Usage
